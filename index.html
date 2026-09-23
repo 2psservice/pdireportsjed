@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDI Plan &amp; Actual — All Yard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#1f3864; --navy-2:#2e5c8a; --blue:#2e75b6; --blue-soft:#e4eef8;
+  --orange:#ed7d31; --orange-soft:#fcebdd; --amber:#f59f00;
+  --green:#2f9e44; --green-soft:#e6f4ea; --red:#c92a2a; --pink:#ffe3e3;
+  --bg:#eef1f7; --card:#ffffff; --ink:#16213a; --muted:#64748b;
+  --line:#dbe3ef; --line-strong:#b9c7de; --input:#fffaeb;
+  --radius:14px; --shadow:0 1px 2px rgba(20,35,70,.06), 0 8px 24px rgba(20,35,70,.07);
+  --mono:'Space Grotesk',ui-monospace,monospace;
+}
+[data-theme="dark"]{
+  --navy:#0e1830; --navy-2:#1b3559; --blue:#4a9de0; --blue-soft:#16283f;
+  --orange:#f0904c; --orange-soft:#3a2418; --bg:#0a1020; --card:#111a2e;
+  --ink:#e6ecf7; --muted:#93a3bd; --line:#22304c; --line-strong:#33456a;
+  --input:#1b2338; --green-soft:#15291c; --pink:#3a1a1e;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans Thai',system-ui,sans-serif;
+  font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
+}
+.num{font-family:var(--mono); font-variant-numeric:tabular-nums}
+header.top{
+  background:linear-gradient(120deg,var(--navy),var(--navy-2));
+  color:#fff; padding:14px 20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  position:sticky; top:0; z-index:30; box-shadow:0 2px 14px rgba(15,25,50,.25);
+}
+header.top h1{font-size:17px; margin:0; font-weight:700; letter-spacing:.2px}
+header.top .sub{font-size:11.5px; opacity:.72; margin-top:2px}
+.spacer{flex:1}
+.chip{
+  display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:999px;
+  font-size:11.5px; font-weight:600; background:rgba(255,255,255,.14); color:#fff; border:1px solid rgba(255,255,255,.18);
+}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:var(--amber)}
+.chip.ok .dot{background:#5ee08a} .chip.err .dot{background:#ff8f8f}
+.iconbtn{
+  background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.18); color:#fff;
+  border-radius:10px; padding:7px 11px; cursor:pointer; font-size:13px; font-family:inherit;
+  transition:background .18s ease, transform .18s ease;
+}
+.iconbtn:hover{background:rgba(255,255,255,.25); transform:translateY(-1px)}
+nav.tabs{
+  display:flex; gap:4px; padding:0 20px; background:var(--card); border-bottom:1px solid var(--line);
+  position:sticky; top:62px; z-index:25; overflow-x:auto;
+}
+nav.tabs button{
+  background:none; border:0; border-bottom:2.5px solid transparent; color:var(--muted);
+  padding:12px 14px; font-size:13.5px; font-weight:600; cursor:pointer; white-space:nowrap; font-family:inherit;
+  transition:color .18s ease, border-color .18s ease;
+}
+nav.tabs button:hover{color:var(--ink)}
+nav.tabs button.on{color:var(--navy); border-color:var(--blue)}
+[data-theme="dark"] nav.tabs button.on{color:var(--blue)}
+main{padding:18px 20px 60px; max-width:1680px; margin:0 auto}
+.bar{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:16px}
+select,input[type=text],input[type=date],input[type=number]{
+  font-family:inherit; font-size:13.5px; color:var(--ink); background:var(--card);
+  border:1px solid var(--line-strong); border-radius:10px; padding:8px 11px; outline:none;
+}
+select:focus,input:focus{border-color:var(--blue); box-shadow:0 0 0 3px rgba(46,117,182,.15)}
+.btn{
+  font-family:inherit; font-size:13.5px; font-weight:600; border-radius:10px; padding:9px 15px;
+  border:1px solid var(--navy); background:var(--navy); color:#fff; cursor:pointer;
+  transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.btn:hover{transform:translateY(-1px); box-shadow:0 6px 16px rgba(31,56,100,.25)}
+.btn.ghost{background:var(--card); color:var(--navy); border-color:var(--line-strong)}
+[data-theme="dark"] .btn.ghost{color:var(--ink)}
+.btn.warn{background:var(--red); border-color:var(--red)}
+.btn.sm{padding:5px 10px; font-size:12px; border-radius:8px}
+.card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; margin-bottom:16px}
+.card h2{margin:0 0 12px; font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px}
+.card h2 .tag{font-size:11px; font-weight:600; color:var(--muted); background:var(--bg); padding:3px 8px; border-radius:999px}
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-bottom:16px}
+.kpi{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; box-shadow:var(--shadow); position:relative; overflow:hidden}
+.kpi:before{content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--blue)}
+.kpi.actual:before{background:var(--orange)} .kpi.diff:before{background:var(--red)} .kpi.pct:before{background:var(--green)}
+.kpi .lbl{font-size:11.5px; color:var(--muted); font-weight:600; letter-spacing:.3px}
+.kpi .val{font-family:var(--mono); font-size:27px; font-weight:700; margin-top:4px; letter-spacing:-.5px}
+.kpi .foot{font-size:11.5px; color:var(--muted); margin-top:2px}
+.scroll{overflow:auto; border:1px solid var(--line); border-radius:12px; background:var(--card)}
+table{border-collapse:separate; border-spacing:0; width:100%; font-size:13px}
+th,td{padding:7px 9px; border-bottom:1px solid var(--line); text-align:center; white-space:nowrap}
+thead th{background:#dce6f1; color:var(--navy); font-weight:700; font-size:12px; position:sticky; top:0; z-index:5}
+[data-theme="dark"] thead th{background:#16233c; color:var(--ink)}
+tbody tr:hover td{background:rgba(46,117,182,.05)}
+td.l,th.l{text-align:left}
+.plan-c{background:var(--blue-soft); color:#1f4e79; font-weight:600}
+.act-c{background:var(--orange-soft); color:#a9500f; font-weight:600}
+[data-theme="dark"] .plan-c{color:#9ecbf0} [data-theme="dark"] .act-c{color:#f0b184}
+.tot-c{background:var(--navy); color:#fff; font-weight:700}
+.neg{color:var(--red); font-weight:700} .pos{color:var(--green); font-weight:700}
+.grid-in{
+  width:42px; text-align:center; border:1px solid transparent; background:var(--input);
+  border-radius:6px; padding:4px 2px; font-family:var(--mono); font-size:12.5px; color:inherit;
+}
+.grid-in:focus{border-color:var(--blue); background:var(--card)}
+.grid-in.zero{color:var(--muted); opacity:.45}
+.eta-cell{background:var(--input); font-weight:700}
+.eta-cell.carried{background:#fce4d6; color:#c92a2a}
+[data-theme="dark"] .eta-cell.carried{background:#3a2418; color:#f2a4a4}
+.wknd{background:rgba(31,56,100,.045)}
+[data-theme="dark"] .wknd{background:rgba(255,255,255,.035)}
+.today{outline:2px solid var(--amber); outline-offset:-2px}
+.bar-chart{display:flex; align-items:flex-end; gap:3px; height:140px; padding:8px 0}
+.bar-chart .b{flex:1; min-width:6px; background:linear-gradient(180deg,var(--orange),#f4a468); border-radius:3px 3px 0 0; position:relative; transition:filter .15s}
+.bar-chart .b:hover{filter:brightness(1.12)}
+.bar-chart .b.under{background:linear-gradient(180deg,#e06666,#f0a0a0)}
+.legend{display:flex; gap:14px; font-size:12px; color:var(--muted); flex-wrap:wrap}
+.legend i{display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:5px; vertical-align:-1px}
+.note-in{width:100%; border:1px solid var(--line); background:var(--input); border-radius:8px; padding:6px 9px; font-family:inherit; font-size:13px; color:inherit}
+.note-in:focus{border-color:var(--blue); outline:none}
+.row-under td{background:var(--pink)!important}
+.empty{padding:34px; text-align:center; color:var(--muted)}
+.banner{background:#fff4d6; border:1px solid #f7d98a; color:#7a5400; padding:12px 16px; border-radius:12px; margin-bottom:16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+[data-theme="dark"] .banner{background:#2d2411; border-color:#5c4a1c; color:#f0d69a}
+.toast{
+  position:fixed; right:18px; bottom:18px; background:var(--navy); color:#fff; padding:11px 16px;
+  border-radius:12px; font-size:13px; box-shadow:0 10px 30px rgba(10,20,45,.3); z-index:90;
+  transform:translateY(80px); opacity:0; transition:all .28s cubic-bezier(.2,.9,.3,1.2);
+}
+.toast.show{transform:translateY(0); opacity:1}
+.grp-line td{border-top:2px solid var(--line-strong)}
+.grid-table{width:max-content; min-width:100%}
+.grid-table th,.grid-table td{padding:5px 6px}
+.hint{font-size:11.5px; color:var(--muted); margin-top:8px}
+.mini{font-size:11px; color:var(--muted)}
+details.help{margin-top:10px} details.help summary{cursor:pointer; font-size:12.5px; color:var(--muted); font-weight:600}
+code{background:var(--bg); padding:2px 6px; border-radius:6px; font-family:var(--mono); font-size:12px}
+.mchips{display:flex; flex-wrap:wrap; gap:5px; margin-bottom:6px}
+.mchip{display:inline-flex; align-items:center; gap:5px; background:var(--blue-soft); color:var(--navy); border:1px solid var(--line-strong); border-radius:999px; padding:3px 6px 3px 11px; font-size:12.5px; font-weight:600}
+[data-theme="dark"] .mchip{color:var(--ink)}
+.mchip button{background:none; border:0; color:var(--muted); cursor:pointer; font-size:12px; line-height:1; padding:2px 3px; border-radius:50%}
+.mchip button:hover{background:var(--red); color:#fff}
+.madd{display:flex; gap:6px; align-items:center}
+.madd .mnew{flex:1; min-width:150px; font-size:12.5px; padding:5px 9px}
+pre{background:var(--bg); padding:12px; border-radius:10px; overflow:auto; font-size:11.5px; border:1px solid var(--line)}
+@media(max-width:700px){ header.top h1{font-size:15px} main{padding:14px 12px 50px} .kpi .val{font-size:22px} }
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>PDI Plan &amp; Actual — All Yard</h1>
+    <div class="sub" id="subTitle">กำลังเชื่อมต่อฐานข้อมูล…</div>
+  </div>
+  <div class="spacer"></div>
+  <span class="chip" id="dbChip"><span class="dot"></span><span id="dbText">เชื่อมต่อ…</span></span>
+  <span class="chip" id="saveChip" style="display:none"><span class="dot"></span><span id="saveText">บันทึกแล้ว</span></span>
+  <button class="iconbtn" id="xlsBtn" title="ดาวน์โหลดเป็น Excel (โครงเดียวกับไฟล์ PDI_Plan-Actual_All Yard)">⬇ Export Excel</button>
+  <button class="iconbtn" id="themeBtn" title="สลับโหมดสว่าง/มืด">◐</button>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button data-v="dash" class="on">ภาพรวม</button>
+  <button data-v="entry">กรอกข้อมูล</button>
+  <button data-v="daily">สรุปรายวัน</button>
+  <button data-v="monthly">สรุปรายเดือน</button>
+  <button data-v="issues">บันทึกปัญหา</button>
+  <button data-v="settings">ตั้งค่า</button>
+</nav>
+
+<main id="app"><div class="empty">กำลังโหลด…</div></main>
+<div class="toast" id="toast"></div>
+
+<script type="application/json" id="seed">{"year":2026,"months":[8,9,10,11,12],"yards":["Rayong yard","NYB2 Phase 2","Soi 5","VEHICLE 60Rai"],"cutoff":"22/09/26","dailyPlanTotal":120,"models":{"Rayong yard":["ATTO 3","DOLPHIN","SEAL 5","SEALION 5","SEALION 6"],"NYB2 Phase 2":["ATTO 1","ATTO 2","ATTO 3","D9","DOLPHIN","M6","SEAL 5","SEAL 6","SEALION 5","SEALION 6","SEALION 7","Z9GT"],"Soi 5":["ATTO 3","DOLPHIN","SEALION 5"],"VEHICLE 60Rai":["ATTO 1","ATTO 2","M6 (7-SEATS)","SEALION 7"]},"lots":[{"yard":"Rayong yard","month":8,"eta":"2026-08-03","carried":false,"model":"ATTO 3","qty":5,"plan":{"3":5},"actual":{"4":5}},{"yard":"Rayong yard","month":8,"eta":"2026-08-04","carried":false,"model":"ATTO 3","qty":1,"plan":{"4":1},"actual":{"5":1}},{"yard":"Rayong yard","month":8,"eta":"2026-08-04","carried":false,"model":"SEALION 5","qty":20,"plan":{"4":20},"actual":{"5":18,"4":2}},{"yard":"Rayong yard","month":8,"eta":"2026-08-05","carried":false,"model":"SEAL 5","qty":2,"plan":{"5":2},"actual":{"5":2}},{"yard":"Rayong yard","month":8,"eta":"2026-08-05","carried":false,"model":"SEALION 5","qty":17,"plan":{"5":17},"actual":{"6":7,"5":10}},{"yard":"Rayong yard","month":8,"eta":"2026-08-06","carried":false,"model":"SEAL 5","qty":12,"plan":{"6":12},"actual":{"6":12}},{"yard":"Rayong yard","month":8,"eta":"2026-08-06","carried":false,"model":"SEALION 5","qty":20,"plan":{"6":20},"actual":{"6":20}},{"yard":"Rayong yard","month":8,"eta":"2026-08-08","carried":false,"model":"ATTO 3","qty":7,"plan":{"8":7},"actual":{"11":5,"8":2}},{"yard":"Rayong yard","month":8,"eta":"2026-08-08","carried":false,"model":"SEALION 6","qty":1,"plan":{"8":1},"actual":{"11":1}},{"yard":"Rayong yard","month":8,"eta":"2026-08-19","carried":false,"model":"ATTO 3","qty":32,"plan":{"19":32},"actual":{"20":32}},{"yard":"Rayong yard","month":8,"eta":"2026-08-20","carried":false,"model":"ATTO 3","qty":14,"plan":{"20":14},"actual":{"20":14}},{"yard":"Rayong yard","month":8,"eta":"2026-08-24","carried":false,"model":"ATTO 3","qty":49,"plan":{"24":49},"actual":{"25":14,"24":35}},{"yard":"Rayong yard","month":8,"eta":"2026-08-24","carried":false,"model":"DOLPHIN","qty":7,"plan":{"24":7},"actual":{"24":6,"25":1}},{"yard":"Rayong yard","month":8,"eta":"2026-08-24","carried":false,"model":"SEALION 5","qty":20,"plan":{"24":20},"actual":{"25":2,"24":18}},{"yard":"Rayong yard","month":8,"eta":"2026-08-24","carried":false,"model":"SEALION 6","qty":3,"plan":{"24":3},"actual":{"24":3}},{"yard":"Rayong yard","month":8,"eta":"2026-08-25","carried":false,"model":"ATTO 3","qty":225,"plan":{"25":225},"actual":{"27":53,"25":62,"26":110}},{"yard":"Rayong yard","month":8,"eta":"2026-08-27","carried":false,"model":"ATTO 3","qty":5,"plan":{"27":5},"actual":{"27":5}},{"yard":"Rayong yard","month":8,"eta":"2026-08-27","carried":false,"model":"SEALION 5","qty":7,"plan":{"27":7},"actual":{"27":7}},{"yard":"Rayong yard","month":8,"eta":"2026-08-27","carried":false,"model":"SEALION 6","qty":1,"plan":{"27":1},"actual":{"27":1}},{"yard":"Rayong yard","month":8,"eta":"2026-08-28","carried":false,"model":"SEALION 5","qty":14,"plan":{"28":14},"actual":{"29":14}},{"yard":"Rayong yard","month":9,"eta":"2026-09-01","carried":false,"model":"ATTO 3","qty":13,"plan":{"1":13},"actual":{"2":9,"1":4}},{"yard":"Rayong yard","month":9,"eta":"2026-09-01","carried":false,"model":"DOLPHIN","qty":49,"plan":{"1":49},"actual":{"2":26,"1":22}},{"yard":"Rayong yard","month":9,"eta":"2026-09-04","carried":false,"model":"DOLPHIN","qty":12,"plan":{"4":12},"actual":{"5":12}},{"yard":"Rayong yard","month":9,"eta":"2026-09-04","carried":false,"model":"SEALION 5","qty":4,"plan":{"4":4},"actual":{"5":4}},{"yard":"Rayong yard","month":9,"eta":"2026-09-04","carried":false,"model":"SEALION 6","qty":1,"plan":{"4":1},"actual":{"5":1}},{"yard":"Rayong yard","month":9,"eta":"2026-09-07","carried":false,"model":"DOLPHIN","qty":13,"plan":{"7":13},"actual":{"7":13}},{"yard":"Rayong yard","month":9,"eta":"2026-09-08","carried":false,"model":"DOLPHIN","qty":13,"plan":{"8":13},"actual":{"8":13}},{"yard":"Rayong yard","month":9,"eta":"2026-09-08","carried":false,"model":"SEALION 5","qty":1,"plan":{"8":1},"actual":{"8":1}},{"yard":"Rayong yard","month":9,"eta":"2026-09-10","carried":false,"model":"DOLPHIN","qty":19,"plan":{"10":19},"actual":{"10":12,"11":7}},{"yard":"Rayong yard","month":9,"eta":"2026-09-10","carried":false,"model":"SEALION 6","qty":1,"plan":{"10":1},"actual":{"10":1}},{"yard":"Rayong yard","month":9,"eta":"2026-09-11","carried":false,"model":"ATTO 3","qty":8,"plan":{"11":8},"actual":{"11":8}},{"yard":"Rayong yard","month":9,"eta":"2026-09-11","carried":false,"model":"DOLPHIN","qty":6,"plan":{"11":6},"actual":{"11":6}},{"yard":"Rayong yard","month":9,"eta":"2026-09-14","carried":false,"model":"DOLPHIN","qty":14,"plan":{"14":14},"actual":{"14":14}},{"yard":"Rayong yard","month":9,"eta":"2026-09-15","carried":false,"model":"ATTO 3","qty":12,"plan":{"15":12},"actual":{"15":12}},{"yard":"Rayong yard","month":9,"eta":"2026-09-15","carried":false,"model":"DOLPHIN","qty":1,"plan":{"15":1},"actual":{"15":1}},{"yard":"Rayong yard","month":9,"eta":"2026-09-18","carried":false,"model":"ATTO 3","qty":3,"plan":{"18":3},"actual":{"19":3}},{"yard":"Rayong yard","month":9,"eta":"2026-09-18","carried":false,"model":"DOLPHIN","qty":4,"plan":{"18":4},"actual":{"19":4}},{"yard":"Rayong yard","month":9,"eta":"2026-09-18","carried":false,"model":"SEALION 5","qty":21,"plan":{"18":21},"actual":{"19":21}},{"yard":"Rayong yard","month":9,"eta":"2026-09-19","carried":false,"model":"ATTO 3","qty":221,"plan":{"19":221},"actual":{}},{"yard":"Rayong yard","month":9,"eta":"2026-09-21","carried":false,"model":"ATTO 3","qty":232,"plan":{"21":232},"actual":{}},{"yard":"Rayong yard","month":9,"eta":"2026-09-21","carried":false,"model":"DOLPHIN","qty":3,"plan":{"21":3},"actual":{}},{"yard":"Rayong yard","month":9,"eta":"2026-09-22","carried":false,"model":"ATTO 3","qty":70,"plan":{"22":70},"actual":{}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-01","carried":false,"model":"ATTO 1","qty":122,"plan":{"1":122},"actual":{"4":55,"5":67}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-01","carried":false,"model":"ATTO 2","qty":99,"plan":{"1":99},"actual":{"4":25,"3":74}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-03","carried":false,"model":"ATTO 3","qty":3,"plan":{"3":3},"actual":{"4":3}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-03","carried":false,"model":"DOLPHIN","qty":5,"plan":{"3":5},"actual":{"4":5}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-04","carried":false,"model":"ATTO 3","qty":4,"plan":{"4":4},"actual":{"4":4}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-04","carried":false,"model":"DOLPHIN","qty":2,"plan":{"4":2},"actual":{"5":1,"4":1}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-04","carried":false,"model":"SEALION 5","qty":1,"plan":{"4":1},"actual":{"5":1}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-05","carried":false,"model":"SEAL 5","qty":12,"plan":{"5":12},"actual":{"5":12}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-05","carried":false,"model":"SEALION 5","qty":4,"plan":{"5":4},"actual":{"5":4}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-08","carried":false,"model":"ATTO 3","qty":26,"plan":{"8":26},"actual":{"8":12,"11":14}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-19","carried":false,"model":"ATTO 3","qty":115,"plan":{"19":115},"actual":{"20":115}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-19","carried":false,"model":"SEALION 6","qty":1,"plan":{"19":1},"actual":{"19":1}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-20","carried":false,"model":"SEALION 6","qty":1,"plan":{"20":1},"actual":{"19":1}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-24","carried":false,"model":"SEALION 5","qty":106,"plan":{"24":106},"actual":{"24":81,"25":25}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-25","carried":false,"model":"ATTO 3","qty":59,"plan":{"25":59},"actual":{"26":16,"25":19,"27":24}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-25","carried":false,"model":"SEALION 7","qty":100,"plan":{"25":100},"actual":{"25":50,"26":50}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-26","carried":false,"model":"ATTO 3","qty":10,"plan":{"26":10},"actual":{"28":8,"29":1,"27":1}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-27","carried":false,"model":"DOLPHIN","qty":1,"plan":{"27":1},"actual":{"27":1}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-29","carried":false,"model":"ATTO 3","qty":125,"plan":{"29":125},"actual":{"30":105,"29":19}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-31","carried":false,"model":"ATTO 1","qty":1,"plan":{"31":1},"actual":{}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-31","carried":false,"model":"ATTO 3","qty":263,"plan":{"31":263},"actual":{"31":19}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-31","carried":false,"model":"D9","qty":2,"plan":{"31":2},"actual":{}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-31","carried":false,"model":"SEAL 6","qty":1,"plan":{"31":1},"actual":{}},{"yard":"NYB2 Phase 2","month":8,"eta":"2026-08-31","carried":false,"model":"Z9GT","qty":5,"plan":{"31":5},"actual":{}},{"yard":"NYB2 Phase 2","month":9,"eta":"2026-08-29","carried":true,"model":"ATTO 3","qty":1,"plan":{"1":1},"actual":{}},{"yard":"NYB2 Phase 2","month":9,"eta":"2026-08-31","carried":true,"model":"ATTO 1","qty":1,"plan":{"1":1},"actual":{}},{"yard":"NYB2 Phase 2","month":9,"eta":"2026-08-31","carried":true,"model":"ATTO 3","qty":244,"plan":{"1":244},"actual":{"2":168,"1":76}},{"yard":"NYB2 Phase 2","month":9,"eta":"2026-08-31","carried":true,"model":"D9","qty":2,"plan":{"1":2},"actual":{}},{"yard":"NYB2 Phase 2","month":9,"eta":"2026-08-31","carried":true,"model":"SEAL 6","qty":1,"plan":{"1":1},"actual":{}},{"yard":"NYB2 Phase 2","month":9,"eta":"2026-08-31","carried":true,"model":"Z9GT","qty":5,"plan":{"1":5},"actual":{}},{"yard":"NYB2 Phase 2","month":9,"eta":"2026-09-01","carried":false,"model":"ATTO 3","qty":121,"plan":{"1":121},"actual":{"2":62,"1":59}},{"yard":"NYB2 Phase 2","month":9,"eta":"2026-09-01","carried":false,"model":"DOLPHIN","qty":23,"plan":{"1":23},"actual":{"2":5,"1":18}},{"yard":"NYB2 Phase 2","month":9,"eta":"2026-09-01","carried":false,"model":"SEALION 7","qty":200,"plan":{"1":200},"actual":{"4":99,"3":101}},{"yard":"NYB2 Phase 2","month":9,"eta":"2026-09-02","carried":false,"model":"ATTO 3","qty":11,"plan":{"2":11},"actual":{"4":11}},{"yard":"NYB2 Phase 2","month":9,"eta":"2026-09-02","carried":false,"model":"DOLPHIN","qty":270,"plan":{"2":270},"actual":{"2":18,"3":197,"4":55}},{"yard":"NYB2 Phase 2","month":9,"eta":"2026-09-02","carried":false,"model":"SEALION 6","qty":1,"plan":{"2":1},"actual":{"4":1}},{"yard":"NYB2 Phase 2","month":9,"eta":"2026-09-03","carried":false,"model":"ATTO 3","qty":44,"plan":{"3":44},"actual":{"5":42}},{"yard":"NYB2 Phase 2","month":9,"eta":"2026-09-03","carried":false,"model":"DOLPHIN","qty":81,"plan":{"3":81},"actual":{"4":73}},{"yard":"NYB2 Phase 2","month":9,"eta":"2026-09-04","carried":false,"model":"ATTO 3","qty":8,"plan":{"4":8},"actual":{"5":8}},{"yard":"NYB2 Phase 2","month":9,"eta":"2026-09-04","carried":false,"model":"DOLPHIN","qty":45,"plan":{"4":45},"actual":{"5":45}},{"yard":"NYB2 Phase 2","month":9,"eta":"2026-09-08","carried":false,"model":"ATTO 3","qty":6,"plan":{"8":6},"actual":{"8":6}},{"yard":"NYB2 Phase 2","month":9,"eta":"2026-09-16","carried":false,"model":"Z9GT","qty":3,"plan":{"16":3},"actual":{}},{"yard":"Soi 5","month":8,"eta":"2026-08-26","carried":false,"model":"ATTO 3","qty":250,"plan":{"26":250},"actual":{"27":42,"28":134,"29":74}},{"yard":"Soi 5","month":8,"eta":"2026-08-26","carried":false,"model":"DOLPHIN","qty":1,"plan":{"26":1},"actual":{"26":1}},{"yard":"Soi 5","month":8,"eta":"2026-08-26","carried":false,"model":"SEALION 5","qty":34,"plan":{"26":34},"actual":{"29":21,"28":12}},{"yard":"Soi 5","month":9,"eta":"2026-08-26","carried":true,"model":"SEALION 5","qty":1,"plan":{"1":1},"actual":{}},{"yard":"Soi 5","month":9,"eta":"2026-09-02","carried":false,"model":"ATTO 3","qty":9,"plan":{"2":9},"actual":{"4":9}},{"yard":"Soi 5","month":9,"eta":"2026-09-02","carried":false,"model":"DOLPHIN","qty":12,"plan":{"2":12},"actual":{"4":7,"3":5}},{"yard":"Soi 5","month":9,"eta":"2026-09-03","carried":false,"model":"ATTO 3","qty":1,"plan":{"3":1},"actual":{"4":1}},{"yard":"Soi 5","month":9,"eta":"2026-09-03","carried":false,"model":"DOLPHIN","qty":4,"plan":{"3":4},"actual":{"4":2}},{"yard":"VEHICLE 60Rai","month":9,"eta":"2026-09-16","carried":false,"model":"ATTO 1","qty":130,"plan":{"16":130},"actual":{}},{"yard":"VEHICLE 60Rai","month":9,"eta":"2026-09-16","carried":false,"model":"ATTO 2","qty":317,"plan":{"16":317},"actual":{}},{"yard":"VEHICLE 60Rai","month":9,"eta":"2026-09-16","carried":false,"model":"M6 (7-SEATS)","qty":1,"plan":{"16":1},"actual":{}},{"yard":"VEHICLE 60Rai","month":9,"eta":"2026-09-17","carried":false,"model":"ATTO 2","qty":49,"plan":{"17":49},"actual":{}},{"yard":"VEHICLE 60Rai","month":9,"eta":"2026-09-17","carried":false,"model":"SEALION 7","qty":24,"plan":{"17":24},"actual":{"17":24}},{"yard":"VEHICLE 60Rai","month":9,"eta":"2026-09-18","carried":false,"model":"ATTO 1","qty":170,"plan":{"18":170},"actual":{}},{"yard":"VEHICLE 60Rai","month":9,"eta":"2026-09-18","carried":false,"model":"ATTO 2","qty":3,"plan":{"18":3},"actual":{}},{"yard":"VEHICLE 60Rai","month":9,"eta":"2026-09-18","carried":false,"model":"SEALION 7","qty":476,"plan":{"18":476},"actual":{"19":78,"20":76,"18":78,"21":127}}]}</script>
+
+<script type="module">
+/* ============================================================
+   PDI Plan & Actual — single-file app, Firestore-backed
+   ข้อมูล: collection "lots", "notes", doc "config/settings"
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyAHH0WLRHe1mfwPDqWqySQnWUKrXRHuii4",
+  authDomain: "pdi-reportsjwd.firebaseapp.com",
+  projectId: "pdi-reportsjwd",
+  storageBucket: "pdi-reportsjwd.firebasestorage.app",
+  messagingSenderId: "253093703663",
+  appId: "1:253093703663:web:42d6988ff714faec2d101a",
+  measurementId: "G-KWPG93CKPB"
+};
+
+const SEED = JSON.parse(document.getElementById('seed').textContent);
+const TH_MONTH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const EN_MONTH = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const YEAR = SEED.year;
+
+const state = {
+  view:'dash', yard:SEED.yards[0], month:9,
+  config:{ dailyPlanTotal:SEED.dailyPlanTotal, yards:[...SEED.yards], months:[...SEED.months],
+           models:JSON.parse(JSON.stringify(SEED.models)), yardPlan:{}, cutoff:SEED.cutoff },
+  lots:[], notes:{}, ready:false
+};
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const daysIn = m => new Date(YEAR, m, 0).getDate();
+const isWknd = (m,d) => { const w = new Date(YEAR, m-1, d).getDay(); return w===0||w===6; };
+const fmt = n => (n===0||n===undefined||n===null||isNaN(n)) ? '-' : Number(n).toLocaleString('en-US');
+const fmtSigned = n => n>0 ? '+'+Number(n).toLocaleString('en-US') : (n<0 ? Number(n).toLocaleString('en-US') : '0');
+const pct = (a,b) => b>0 ? (a/b*100).toFixed(1)+'%' : '–';
+const esc = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const etaLabel = iso => { const [y,m,d]=iso.split('-').map(Number); return `${d} ${EN_MONTH[m-1]} '${String(y).slice(2)}`; };
+const sumMap = o => Object.values(o||{}).reduce((a,b)=>a+(Number(b)||0),0);
+
+function toast(msg, ms=2200){
+  const t=$('#toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'), ms);
+}
+let saveTimer=null;
+function flagSaving(){
+  const c=$('#saveChip'); c.style.display='inline-flex'; c.classList.remove('ok');
+  $('#saveText').textContent='กำลังบันทึก…';
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{ c.classList.add('ok'); $('#saveText').textContent='บันทึกแล้ว'; }, 700);
+}
+
+/* ---------- storage layer: Firestore, else localStorage ---------- */
+const DB = { mode:'local', fs:null, api:null };
+const LS_KEY = 'pdi_plan_actual_v1';
+
+async function initDB(){
+  try{
+    const [{initializeApp}, fs] = await Promise.all([
+      import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js'),
+      import('https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js')
+    ]);
+    const app = initializeApp(firebaseConfig);
+    DB.fs = fs.getFirestore(app); DB.api = fs; DB.mode='firestore';
+    setChip('ok','Firestore • pdi-reportsjwd');
+    await new Promise((res,rej)=>{
+      const t=setTimeout(()=>rej(new Error('timeout')), 12000);
+      const un = fs.onSnapshot(fs.doc(DB.fs,'config','settings'), snap=>{
+        clearTimeout(t);
+        if(snap.exists()) Object.assign(state.config, snap.data());
+        res(un);
+      }, err=>{ clearTimeout(t); rej(err); });
+    });
+    fs.onSnapshot(fs.collection(DB.fs,'lots'), snap=>{
+      state.lots = snap.docs.map(d=>({id:d.id, ...d.data()}));
+      state.ready = true; render();
+    }, e=>{ console.error(e); toast('อ่านข้อมูล lots ไม่ได้: '+e.code); });
+    fs.onSnapshot(fs.collection(DB.fs,'notes'), snap=>{
+      const n={}; snap.docs.forEach(d=>n[d.id]=d.data()); state.notes=n; render();
+    }, e=>console.error(e));
+  }catch(err){
+    console.warn('Firestore unavailable →  localStorage', err);
+    DB.mode='local';
+    setChip('err','โหมดออฟไลน์ (เก็บในเครื่อง)');
+    loadLocal(); state.ready=true;
+  }
+}
+function setChip(cls,text){
+  const c=$('#dbChip'); c.classList.remove('ok','err'); if(cls) c.classList.add(cls);
+  $('#dbText').textContent=text;
+}
+function loadLocal(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw){ const o=JSON.parse(raw); state.lots=o.lots||[]; state.notes=o.notes||{}; Object.assign(state.config,o.config||{}); }
+  }catch(e){ console.warn(e); }
+}
+function saveLocal(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify({lots:state.lots, notes:state.notes, config:state.config})); }
+  catch(e){ console.warn(e); }
+}
+
+/* write helpers — same call signature in both modes */
+async function putLot(lot){
+  flagSaving();
+  if(DB.mode==='firestore'){
+    const {doc,setDoc} = DB.api;
+    const {id, ...data} = lot;
+    await setDoc(doc(DB.fs,'lots',id), data, {merge:true});
+  }else{
+    const i = state.lots.findIndex(l=>l.id===lot.id);
+    if(i<0) state.lots.push(lot); else state.lots[i]=lot;
+    saveLocal(); render();
+  }
+}
+async function delLot(id){
+  flagSaving();
+  if(DB.mode==='firestore'){ const {doc,deleteDoc}=DB.api; await deleteDoc(doc(DB.fs,'lots',id)); }
+  else { state.lots = state.lots.filter(l=>l.id!==id); saveLocal(); render(); }
+}
+async function putNote(key, data){
+  flagSaving();
+  if(DB.mode==='firestore'){ const {doc,setDoc}=DB.api; await setDoc(doc(DB.fs,'notes',key), data, {merge:true}); }
+  else { state.notes[key]={...(state.notes[key]||{}), ...data}; saveLocal(); }
+}
+async function putConfig(patch){
+  Object.assign(state.config, patch); flagSaving();
+  if(DB.mode==='firestore'){ const {doc,setDoc}=DB.api; await setDoc(doc(DB.fs,'config','settings'), state.config, {merge:true}); }
+  else { saveLocal(); render(); }
+}
+async function writeLots(lots, wipe=false){
+  if(DB.mode==='firestore'){
+    const {collection,getDocs,writeBatch,doc,setDoc} = DB.api;
+    if(wipe){
+      const snap = await getDocs(collection(DB.fs,'lots'));
+      for(let i=0;i<snap.docs.length;i+=400){
+        const b=writeBatch(DB.fs); snap.docs.slice(i,i+400).forEach(d=>b.delete(d.ref)); await b.commit();
+      }
+    }
+    for(let i=0;i<lots.length;i+=400){
+      const b=writeBatch(DB.fs);
+      lots.slice(i,i+400).forEach(l=>{ const {id,...data}=l; b.set(doc(DB.fs,'lots',id), data); });
+      await b.commit();
+    }
+  }else{
+    if(wipe) state.lots = lots.slice();
+    else { const map=new Map(state.lots.map(l=>[l.id,l])); lots.forEach(l=>map.set(l.id,l)); state.lots=[...map.values()]; }
+    saveLocal(); render();
+  }
+}
+
+/* ---------- calculations ---------- */
+const planPerDay = yard => {
+  const y = state.config.yardPlan||{};
+  if(y[yard]!==undefined && y[yard]!=='') return Number(y[yard])||0;
+  const yards = state.config.yards.length||1;
+  return (Number(state.config.dailyPlanTotal)||0)/yards;
+};
+const lotsOf = (yard,month) => state.lots.filter(l=>l.yard===yard && Number(l.month)===Number(month));
+
+function dayAgg(yard, month){
+  // arrivals = รถเข้า + ล็อตที่ยกมา (งานที่ต้องทำในเดือนนี้), arrivalsNew = เฉพาะรถเข้าใหม่
+  const n=daysIn(month), arrivals=Array(n+1).fill(0), arrivalsNew=Array(n+1).fill(0), actual=Array(n+1).fill(0);
+  lotsOf(yard,month).forEach(l=>{
+    for(const [d,v] of Object.entries(l.plan||{})) if(+d<=n){
+      arrivals[+d]+=Number(v)||0; if(!l.carried) arrivalsNew[+d]+=Number(v)||0;
+    }
+    for(const [d,v] of Object.entries(l.actual||{})) if(+d<=n) actual[+d]+=Number(v)||0;
+  });
+  const plan = Array(n+1).fill(0).map((_,i)=> i===0?0:planPerDay(yard));
+  return {n, arrivals, arrivalsNew, actual, plan};
+}
+function allYardAgg(month){
+  const n=daysIn(month), keys=['arrivals','arrivalsNew','actual','plan'];
+  const o={n}; keys.forEach(k=>o[k]=Array(n+1).fill(0));
+  state.config.yards.forEach(y=>{
+    const a=dayAgg(y,month);
+    for(let d=1; d<=n; d++) keys.forEach(k=>o[k][d]+=a[k][d]);
+  });
+  return o;
+}
+const monthTotals = (yard,month) => {
+  const a = dayAgg(yard,month);
+  const s = arr => arr.reduce((x,y)=>x+y,0);
+  return {plan:s(a.plan), actual:s(a.actual), arrivals:s(a.arrivalsNew), due:s(a.arrivals)};
+};
+
+/* ---------- views ---------- */
+function render(){
+  if(!state.ready) return;
+  const v=state.view;
+  $('#subTitle').textContent =
+    `${state.config.yards.length} Yard · ${EN_MONTH[state.config.months[0]-1]}–${EN_MONTH[state.config.months.at(-1)-1]} ${YEAR} · แผน ${fmt(state.config.dailyPlanTotal)} คัน/วัน (รวมทุก Yard)`;
+  const el=$('#app');
+  el.innerHTML =
+    v==='dash' ? viewDash() :
+    v==='entry' ? viewEntry() :
+    v==='daily' ? viewDaily() :
+    v==='monthly' ? viewMonthly() :
+    v==='issues' ? viewIssues() : viewSettings();
+  wire();
+}
+
+function monthPicker(id='monthSel'){
+  return `<select id="${id}">${state.config.months.map(m=>
+    `<option value="${m}" ${m==state.month?'selected':''}>${TH_MONTH[m-1]} / ${EN_MONTH[m-1]} ${YEAR}</option>`).join('')}</select>`;
+}
+function yardPicker(id='yardSel'){
+  return `<select id="${id}">${state.config.yards.map(y=>
+    `<option value="${esc(y)}" ${y===state.yard?'selected':''}>${esc(y)}</option>`).join('')}</select>`;
+}
+function seedBanner(){
+  if(state.lots.length) return '';
+  return `<div class="banner">ยังไม่มีข้อมูลในฐานข้อมูล — กดนำเข้าข้อมูลตั้งต้นจาก Defect list (ตัดยอด ${esc(state.config.cutoff)}) ได้เลย
+    <button class="btn sm" id="seedNow">นำเข้าข้อมูลตั้งต้น</button></div>`;
+}
+
+/* ---- 1. dashboard ---- */
+function viewDash(){
+  const months=state.config.months;
+  let P=0,A=0,ARR=0;
+  months.forEach(m=>state.config.yards.forEach(y=>{
+    const t=monthTotals(y,m); P+=t.plan; A+=t.actual; ARR+=t.arrivals;
+  }));
+  const a=allYardAgg(state.month), n=a.n;
+  const maxV=Math.max(...a.actual.slice(1), ...a.plan.slice(1), 1);
+  const bars=Array.from({length:n},(_,i)=>{
+    const d=i+1, act=a.actual[d], pl=a.plan[d];
+    return `<div class="b ${act<pl?'under':''}" style="height:${Math.max(2,act/maxV*100)}%" title="วันที่ ${d} · ทำได้ ${fmt(act)} / แผน ${fmt(Math.round(pl))} คัน"></div>`;
+  }).join('');
+  const planLine = (a.plan[1]/maxV*100);
+
+  const rows = months.map(m=>{
+    let p=0,ac=0,ar=0;
+    state.config.yards.forEach(y=>{const t=monthTotals(y,m); p+=t.plan; ac+=t.actual; ar+=t.arrivals;});
+    return `<tr><td class="l"><b>${EN_MONTH[m-1]}</b> <span class="mini">${TH_MONTH[m-1]}</span></td>
+      <td class="plan-c num">${fmt(Math.round(p))}</td><td class="act-c num">${fmt(ac)}</td>
+      <td class="num ${ac-p<0?'neg':'pos'}">${fmtSigned(Math.round(ac-p))}</td>
+      <td class="num">${pct(ac,p)}</td><td class="num">${fmt(ar)}</td></tr>`;
+  }).join('');
+  const yardRows = state.config.yards.map(y=>{
+    let p=0,ac=0,ar=0;
+    months.forEach(m=>{const t=monthTotals(y,m); p+=t.plan; ac+=t.actual; ar+=t.arrivals;});
+    const openN = openUnits(y);
+    return `<tr><td class="l"><b>${esc(y)}</b></td><td class="plan-c num">${fmt(Math.round(p))}</td>
+      <td class="act-c num">${fmt(ac)}</td><td class="num ${ac-p<0?'neg':'pos'}">${fmtSigned(Math.round(ac-p))}</td>
+      <td class="num">${pct(ac,p)}</td><td class="num">${fmt(ar)}</td><td class="num ${openN>0?'neg':''}">${fmt(openN)}</td></tr>`;
+  }).join('');
+
+  return `${seedBanner()}
+  <div class="kpis">
+    <div class="kpi"><div class="lbl">PLAN PDI (${EN_MONTH[months[0]-1]}–${EN_MONTH[months.at(-1)-1]})</div>
+      <div class="val num">${fmt(Math.round(P))}</div><div class="foot">${fmt(state.config.dailyPlanTotal)} คัน/วัน รวมทุก Yard</div></div>
+    <div class="kpi actual"><div class="lbl">ACTUAL PDI</div><div class="val num">${fmt(A)}</div>
+      <div class="foot">ทำได้จริงสะสม</div></div>
+    <div class="kpi diff"><div class="lbl">DIFF.</div><div class="val num ${A-P<0?'neg':'pos'}">${fmtSigned(Math.round(A-P))}</div>
+      <div class="foot">Actual − Plan</div></div>
+    <div class="kpi pct"><div class="lbl">% ความสำเร็จ</div><div class="val num">${pct(A,P)}</div>
+      <div class="foot">รถเข้าทั้งหมด ${fmt(ARR)} คัน</div></div>
+  </div>
+
+  <div class="card">
+    <h2>ทำได้จริงรายวัน <span class="tag">${TH_MONTH[state.month-1]} ${YEAR}</span>
+      <span class="spacer"></span>${monthPicker()}</h2>
+    <div style="position:relative">
+      <div class="bar-chart">${bars}</div>
+      <div style="position:absolute; left:0; right:0; bottom:${8+planLine*1.24}px; border-top:2px dashed var(--blue); pointer-events:none"></div>
+    </div>
+    <div class="legend"><span><i style="background:var(--orange)"></i>ทำได้ตามแผน</span>
+      <span><i style="background:#e06666"></i>ต่ำกว่าแผน</span>
+      <span><i style="background:var(--blue)"></i>เส้นแผน ${fmt(Math.round(a.plan[1]))} คัน/วัน</span></div>
+  </div>
+
+  <div class="card"><h2>สรุปรายเดือน รวมทุก Yard</h2>
+    <div class="scroll"><table><thead><tr><th class="l">เดือน</th><th>Plan PDI</th><th>Actual PDI</th><th>Diff.</th><th>% สำเร็จ</th><th>รถเข้า (ETA)</th></tr></thead>
+    <tbody>${rows}</tbody></table></div></div>
+
+  <div class="card"><h2>แยกราย Yard</h2>
+    <div class="scroll"><table><thead><tr><th class="l">Yard</th><th>Plan PDI</th><th>Actual PDI</th><th>Diff.</th><th>% สำเร็จ</th><th>รถเข้า (ETA)</th><th>ค้าง PDI</th></tr></thead>
+    <tbody>${yardRows}</tbody></table></div>
+    <div class="hint">ค้าง PDI = รถเข้าสะสม − ทำ PDI สะสม ของ yard นั้น (ทุกเดือนรวมกัน)</div></div>`;
+}
+function openUnits(yard){
+  let arr=0, act=0;
+  state.config.months.forEach(m=>{ const t=monthTotals(yard,m); arr+=t.arrivals; act+=t.actual; });
+  return Math.max(0, arr-act);
+}
+
+/* ---- 2. entry grid ---- */
+function viewEntry(){
+  const m=state.month, n=daysIn(m), yard=state.yard;
+  const list = lotsOf(yard,m);
+  const groups = {};
+  list.forEach(l=>{ const k=(l.carried?'C|':'N|')+l.eta; (groups[k] = groups[k]||[]).push(l); });
+  const keys = Object.keys(groups).sort((a,b)=>{
+    const [ca,ea]=a.split('|'), [cb,eb]=b.split('|');
+    if(ca!==cb) return ca==='C'?-1:1;
+    return ea.localeCompare(eb);
+  });
+  const models = state.config.models[yard] || [];
+  const dayHead = Array.from({length:n},(_,i)=>`<th class="${isWknd(m,i+1)?'wknd':''}">${i+1}</th>`).join('');
+
+  let body='';
+  if(!keys.length){
+    body = `<tr><td colspan="${n+5}" class="empty">ยังไม่มีล็อตในเดือนนี้ — กด “+ เพิ่มล็อต ETA” เพื่อเริ่มกรอก</td></tr>`;
+  }
+  keys.forEach(k=>{
+    const rows = groups[k].sort((a,b)=>(a.model||'').localeCompare(b.model||''));
+    const carried = k.startsWith('C|'), eta = k.slice(2);
+    const units = rows.reduce((s,l)=>s+(Number(l.qty)||0),0);
+    rows.forEach((l,i)=>{
+      const planCells = Array.from({length:n},(_,j)=>{
+        const d=j+1, v=l.plan?.[d]||'';
+        return `<td class="${isWknd(m,d)?'wknd':''}"><input class="grid-in ${v?'':'zero'}" data-id="${l.id}" data-k="plan" data-d="${d}" value="${v}" inputmode="numeric"></td>`;
+      }).join('');
+      const actCells = Array.from({length:n},(_,j)=>{
+        const d=j+1, v=l.actual?.[d]||'';
+        return `<td class="${isWknd(m,d)?'wknd':''}"><input class="grid-in ${v?'':'zero'}" data-id="${l.id}" data-k="actual" data-d="${d}" value="${v}" inputmode="numeric"></td>`;
+      }).join('');
+      const first = i===0;
+      body += `<tr class="${first?'grp-line':''}">
+        ${first?`<td class="eta-cell ${carried?'carried':''} l" rowspan="${rows.length*2}">
+            <div><b>${carried?'ยกมา ':''}${etaLabel(eta)}</b></div>
+            <div class="mini num">${fmt(units)} units</div>
+            <button class="btn sm ghost" data-add-model="${esc(k)}" style="margin-top:6px">+ รุ่น</button></td>`:''}
+        <td class="l" rowspan="2">
+          <select data-id="${l.id}" data-k="model" style="padding:4px 6px;font-size:12.5px">
+            ${models.map(md=>`<option ${md===l.model?'selected':''}>${esc(md)}</option>`).join('')}
+            ${models.includes(l.model)?'':`<option selected>${esc(l.model||'')}</option>`}
+          </select>
+          <div class="mini">(PDI as normal)</div></td>
+        <td rowspan="2"><input class="grid-in" style="width:54px" data-id="${l.id}" data-k="qty" value="${l.qty||''}" inputmode="numeric"></td>
+        <td class="plan-c" style="font-size:11.5px">Plan PDI</td>
+        ${planCells}
+        <td class="tot-c num">${fmt(sumMap(l.plan))}</td>
+        <td rowspan="2"><button class="btn sm warn" data-del="${l.id}" title="ลบแถวนี้">✕</button></td>
+      </tr>
+      <tr>
+        <td class="act-c" style="font-size:11.5px">Actual PDI</td>
+        ${actCells}
+        <td class="tot-c num">${fmt(sumMap(l.actual))}</td>
+      </tr>`;
+    });
+  });
+
+  const a=dayAgg(yard,m);
+  const totRow = (label, arr, cls) => `<tr><td class="l ${cls}" colspan="4"><b>${label}</b></td>
+    ${Array.from({length:n},(_,i)=>`<td class="${cls} num ${isWknd(m,i+1)?'wknd':''}">${fmt(Math.round(arr[i+1]))}</td>`).join('')}
+    <td class="tot-c num">${fmt(Math.round(arr.slice(1).reduce((x,y)=>x+y,0)))}</td><td></td></tr>`;
+  const diff = Array(n+1).fill(0).map((_,d)=> d===0?0:a.actual[d]-a.plan[d]);
+  const diffRow = `<tr><td class="l" colspan="4" style="background:#fff2cc"><b>Diff.</b></td>
+    ${Array.from({length:n},(_,i)=>{const v=Math.round(diff[i+1]);
+      return `<td class="num ${v<0?'neg':'pos'} ${isWknd(m,i+1)?'wknd':''}" style="background:#fff2cc">${fmtSigned(v)}</td>`;}).join('')}
+    <td class="tot-c num">${fmtSigned(Math.round(diff.slice(1).reduce((x,y)=>x+y,0)))}</td><td></td></tr>`;
+
+  return `${seedBanner()}
+  <div class="bar">
+    ${yardPicker()} ${monthPicker()}
+    <button class="btn" id="addLot">+ เพิ่มล็อต ETA</button>
+    <span class="spacer"></span>
+    <span class="mini">แผนของ yard นี้ <b class="num">${fmt(Math.round(planPerDay(yard)))}</b> คัน/วัน</span>
+  </div>
+  <div class="card" style="padding:10px">
+    <div class="scroll" style="max-height:72vh">
+      <table class="grid-table"><thead><tr>
+        <th class="l">ETA</th><th class="l">Model</th><th>Q'ty</th><th>Plan&amp;Actual</th>${dayHead}<th>รวม</th><th></th>
+      </tr></thead>
+      <tbody>${body}
+        ${totRow('Plan PDI (เป้า)', a.plan, 'plan-c')}
+        ${totRow('Actual PDI', a.actual, 'act-c')}
+        ${diffRow}
+        ${totRow('งานที่ต้องทำ (รถเข้า + ยกมา)', a.arrivals, '')}
+      </tbody></table>
+    </div>
+    <div class="hint">พิมพ์ตัวเลขในช่องสีครีมได้เลย บันทึกอัตโนมัติ · ใช้ลูกศร ←→↑↓ เลื่อนช่องได้ · ล็อตที่ขึ้น “ยกมา” คือของค้างจากเดือนก่อน</div>
+  </div>`;
+}
+
+/* ---- 3. daily summary (all yards) ---- */
+function viewDaily(){
+  const m=state.month, n=daysIn(m), a=allYardAgg(m);
+  const head=Array.from({length:n},(_,i)=>`<th class="${isWknd(m,i+1)?'wknd':''}">${i+1}</th>`).join('');
+  const row=(label,arr,cls,signed=false)=>`<tr><td class="l ${cls}"><b>${label}</b></td>
+    ${Array.from({length:n},(_,i)=>{const v=Math.round(arr[i+1]);
+      return `<td class="num ${cls} ${isWknd(m,i+1)?'wknd':''} ${signed?(v<0?'neg':'pos'):''}">${signed?fmtSigned(v):fmt(v)}</td>`;}).join('')}
+    <td class="tot-c num">${signed?fmtSigned(Math.round(arr.slice(1).reduce((x,y)=>x+y,0))):fmt(Math.round(arr.slice(1).reduce((x,y)=>x+y,0)))}</td></tr>`;
+  const diff=Array(n+1).fill(0).map((_,d)=>d===0?0:a.actual[d]-a.plan[d]);
+  const pctRow=`<tr><td class="l"><b>% ความสำเร็จ</b></td>
+    ${Array.from({length:n},(_,i)=>`<td class="num ${isWknd(m,i+1)?'wknd':''}">${a.plan[i+1]?pct(a.actual[i+1],a.plan[i+1]):'–'}</td>`).join('')}
+    <td class="tot-c num">${pct(a.actual.slice(1).reduce((x,y)=>x+y,0), a.plan.slice(1).reduce((x,y)=>x+y,0))}</td></tr>`;
+
+  const yardBlocks = state.config.yards.map(y=>{
+    const ya=dayAgg(y,m);
+    return `<tr class="grp-line"><td class="l" style="background:var(--navy);color:#fff"><b>${esc(y)}</b></td>
+      ${Array.from({length:n},(_,i)=>`<td class="num ${isWknd(m,i+1)?'wknd':''}">${fmt(ya.actual[i+1])}</td>`).join('')}
+      <td class="tot-c num">${fmt(ya.actual.slice(1).reduce((x,z)=>x+z,0))}</td></tr>`;
+  }).join('');
+
+  return `<div class="bar">${monthPicker()}<button class="btn ghost" id="expCsv">ดาวน์โหลด CSV</button></div>
+  <div class="card"><h2>สรุป PDI รายวัน รวมทุก Yard <span class="tag">${TH_MONTH[m-1]} ${YEAR}</span></h2>
+    <div class="scroll"><table><thead><tr><th class="l">รายการ</th>${head}<th>รวมทั้งเดือน</th></tr></thead>
+    <tbody>${row('Plan PDI',a.plan,'plan-c')}${row('Actual PDI',a.actual,'act-c')}${row('Diff.',diff,'',true)}${pctRow}${row('รถเข้า (ETA)',a.arrivalsNew,'')}${row('งานที่ต้องทำ (รวมยกมา)',a.arrivals,'')}
+    </tbody></table></div></div>
+  <div class="card"><h2>Actual PDI แยกราย Yard</h2>
+    <div class="scroll"><table><thead><tr><th class="l">Yard</th>${head}<th>รวม</th></tr></thead><tbody>${yardBlocks}</tbody></table></div></div>`;
+}
+
+/* ---- 4. monthly by yard ---- */
+function viewMonthly(){
+  const yards=state.config.yards, months=state.config.months;
+  const head = yards.map(y=>`<th colspan="3">${esc(y)}</th>`).join('')+'<th colspan="3">รวมทุก Yard</th><th>% สำเร็จ</th>';
+  const sub = yards.concat(['รวม']).map(()=>`<th class="plan-c">Plan</th><th class="act-c">Actual</th><th>Diff.</th>`).join('')+'<th></th>';
+  const rows = months.map(m=>{
+    let tp=0,ta=0;
+    const cells = yards.map(y=>{
+      const t=monthTotals(y,m); tp+=t.plan; ta+=t.actual;
+      return `<td class="plan-c num">${fmt(Math.round(t.plan))}</td><td class="act-c num">${fmt(t.actual)}</td>
+        <td class="num ${t.actual-t.plan<0?'neg':'pos'}">${fmtSigned(Math.round(t.actual-t.plan))}</td>`;
+    }).join('');
+    return `<tr><td class="l"><b>${TH_MONTH[m-1]}</b> <span class="mini">${EN_MONTH[m-1]}</span></td>${cells}
+      <td class="plan-c num"><b>${fmt(Math.round(tp))}</b></td><td class="act-c num"><b>${fmt(ta)}</b></td>
+      <td class="num ${ta-tp<0?'neg':'pos'}"><b>${fmtSigned(Math.round(ta-tp))}</b></td><td class="num">${pct(ta,tp)}</td></tr>`;
+  }).join('');
+  let gp=0,ga=0; const gcells = yards.map(y=>{
+    let p=0,a=0; months.forEach(m=>{const t=monthTotals(y,m); p+=t.plan; a+=t.actual;});
+    gp+=p; ga+=a;
+    return `<td class="tot-c num">${fmt(Math.round(p))}</td><td class="tot-c num">${fmt(a)}</td><td class="tot-c num">${fmtSigned(Math.round(a-p))}</td>`;
+  }).join('');
+  return `<div class="card"><h2>สรุป PDI รายเดือน แยก Yard</h2>
+    <div class="scroll"><table><thead><tr><th class="l" rowspan="2">เดือน</th>${head}</tr><tr>${sub}</tr></thead>
+    <tbody>${rows}<tr><td class="tot-c l"><b>รวม</b></td>${gcells}
+      <td class="tot-c num">${fmt(Math.round(gp))}</td><td class="tot-c num">${fmt(ga)}</td>
+      <td class="tot-c num">${fmtSigned(Math.round(ga-gp))}</td><td class="tot-c num">${pct(ga,gp)}</td></tr></tbody></table></div></div>`;
+}
+
+/* ---- 5. issue log ---- */
+function viewIssues(){
+  const m=state.month, n=daysIn(m), yards=state.config.yards;
+  let rows='';
+  yards.forEach(y=>{
+    const a=dayAgg(y,m);
+    for(let d=1; d<=n; d++){
+      const plan=a.plan[d], act=a.actual[d], diff=act-plan;
+      if(plan===0 && act===0 && a.arrivals[d]===0) continue;
+      const key=`${y}__${m}__${d}`, note=state.notes[key]||{};
+      rows += `<tr class="${diff<0?'row-under':''}">
+        <td class="l">${esc(y)}</td><td class="num">${d} ${EN_MONTH[m-1]}</td>
+        <td class="plan-c num">${fmt(Math.round(plan))}</td><td class="act-c num">${fmt(act)}</td>
+        <td class="num ${diff<0?'neg':'pos'}">${fmtSigned(Math.round(diff))}</td>
+        <td class="l">${diff<0?`<b class="neg">ต่ำกว่าเป้า ${fmt(Math.round(-diff))} คัน</b>`:'<span class="pos">ตามเป้า</span>'}</td>
+        <td style="min-width:320px"><input class="note-in" data-note="${esc(key)}" data-f="text" value="${esc(note.text||'')}" placeholder="สาเหตุที่ไม่ได้ตามเป้า…"></td>
+        <td style="min-width:120px"><input class="note-in" data-note="${esc(key)}" data-f="by" value="${esc(note.by||'')}" placeholder="ผู้บันทึก"></td></tr>`;
+    }
+  });
+  if(!rows) rows=`<tr><td colspan="8" class="empty">ยังไม่มีวันที่มีข้อมูลในเดือนนี้</td></tr>`;
+  return `<div class="bar">${monthPicker()}<span class="mini">แถวสีชมพู = วันที่ทำได้ต่ำกว่าแผน</span></div>
+  <div class="card"><h2>บันทึกปัญหารายวัน <span class="tag">${TH_MONTH[m-1]} ${YEAR}</span></h2>
+    <div class="scroll" style="max-height:74vh"><table><thead><tr><th class="l">Yard</th><th>วันที่</th><th>Plan</th><th>Actual</th><th>Diff.</th>
+      <th class="l">สถานะ</th><th class="l">ปัญหา / สาเหตุ</th><th class="l">ผู้บันทึก</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+
+/* ---- 6. settings ---- */
+function viewSettings(){
+  const yards=state.config.yards;
+  const chip = (y,md)=>`<span class="mchip">${esc(md)}<button data-delmodel="${esc(y)}" data-md="${esc(md)}" title="ลบรุ่นนี้">✕</button></span>`;
+  const yardRows = yards.map(y=>`<tr>
+    <td class="l"><b>${esc(y)}</b></td>
+    <td><input class="grid-in" style="width:70px" data-yplan="${esc(y)}" value="${state.config.yardPlan?.[y]??''}" placeholder="${fmt(Math.round(planPerDay(y)))}"></td>
+    <td class="l">
+      <div class="mchips">${(state.config.models[y]||[]).map(md=>chip(y,md)).join('')||'<span class="mini">— ยังไม่มีรุ่น —</span>'}</div>
+      <div class="madd"><input type="text" class="mnew" data-addmodel="${esc(y)}" placeholder="พิมพ์รุ่นใหม่ เช่น SEAL 6 แล้วกด Enter" list="allModels">
+        <button class="btn sm ghost" data-addmodelbtn="${esc(y)}">+ เพิ่มรุ่น</button></div></td>
+    <td><button class="btn sm warn" data-delyard="${esc(y)}">ลบ Yard</button></td></tr>`).join('');
+  const allModels=[...new Set(Object.values(state.config.models).flat())].sort();
+  return `<div class="card"><h2>แผนงาน (Plan PDI)</h2>
+    <div class="bar"><label>แผนรวมทุก Yard ต่อวัน</label>
+      <input type="number" id="planTotal" value="${state.config.dailyPlanTotal}" style="width:110px">
+      <span class="mini">คัน/วัน — ถ้าไม่กำหนดรายแห่ง จะหารเท่ากัน ${yards.length} yard = ${fmt(Math.round((state.config.dailyPlanTotal||0)/(yards.length||1)))} คัน/วัน/yard</span>
+      <button class="btn" id="savePlan">บันทึก</button></div>
+    <div class="scroll"><table><thead><tr><th class="l">Yard</th><th>แผน/วัน (เฉพาะแห่ง)</th><th class="l">รุ่นรถที่เลือกได้ (เพิ่ม/ลบเองได้)</th><th></th></tr></thead>
+    <tbody>${yardRows}</tbody></table></div>
+    <datalist id="allModels">${allModels.map(m=>`<option value="${esc(m)}">`).join('')}</datalist>
+    <div class="hint">รุ่นใหม่ที่เพิ่มจะไปอยู่ใน dropdown ช่อง Model ของหน้ากรอกข้อมูลทันที · การลบรุ่นออกจากรายการไม่ลบข้อมูลล็อตที่กรอกไว้แล้ว</div>
+    <div class="bar" style="margin-top:12px"><input type="text" id="newYard" placeholder="ชื่อ Yard ใหม่"><button class="btn ghost" id="addYard">+ เพิ่ม Yard</button></div>
+  </div>
+
+  <div class="card"><h2>ข้อมูล</h2>
+    <div class="bar">
+      <button class="btn" id="seedBtn">นำเข้าข้อมูลตั้งต้น (Defect list ${esc(state.config.cutoff)})</button>
+      <button class="btn ghost" id="expJson">สำรองข้อมูลเป็น JSON</button>
+      <label class="btn ghost" style="cursor:pointer">นำเข้าไฟล์ JSON<input type="file" id="impJson" accept=".json" hidden></label>
+      <button class="btn warn" id="wipeBtn">ล้างข้อมูลทั้งหมด</button>
+    </div>
+    <div class="hint">ข้อมูลตั้งต้นคือ 100 ล็อตจาก Defect list Co-inspection (ตัด Move from = MAIN YARD, เดือน ส.ค.–ก.ย. 2026) กดซ้ำได้ ระบบจะเขียนทับล็อตเดิมที่มี ID ตรงกัน</div>
+    <div class="hint">สถานะฐานข้อมูล: <b>${DB.mode==='firestore'?'Firestore (pdi-reportsjwd)':'เก็บในเครื่อง (localStorage)'}</b> — ข้อมูลที่กรอกจะซิงก์ทุกเครื่องเมื่อใช้ Firestore</div>
+    <details class="help"><summary>กฎความปลอดภัยของ Firestore ที่ต้องตั้ง (คัดลอกไปวางในหน้า Rules)</summary>
+<pre>rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    match /{doc=**} {
+      allow read, write: if true;   // ใช้ภายในองค์กร; ถ้าต้องการจำกัด ให้เปิด Firebase Auth แล้วเปลี่ยนเป็น request.auth != null
+    }
+  }
+}</pre></details>
+  </div>`;
+}
+
+/* ---------- events ---------- */
+function wire(){
+  const ms=$('#monthSel'); if(ms) ms.onchange=e=>{ state.month=+e.target.value; render(); };
+  const ys=$('#yardSel'); if(ys) ys.onchange=e=>{ state.yard=e.target.value; render(); };
+
+  // grid inputs
+  document.querySelectorAll('.grid-in[data-id]').forEach(inp=>{
+    inp.onchange = async e=>{
+      const {id,k,d} = e.target.dataset;
+      const lot = state.lots.find(l=>l.id===id); if(!lot) return;
+      const raw = e.target.value.trim();
+      const v = raw==='' ? 0 : Math.max(0, parseInt(raw,10)||0);
+      if(k==='qty'){ lot.qty=v; }
+      else { lot[k] = {...(lot[k]||{})}; if(v) lot[k][d]=v; else delete lot[k][d]; }
+      await putLot(lot);
+      if(DB.mode==='firestore') render();
+    };
+    inp.onkeydown = e=>{
+      const map={ArrowRight:1, ArrowLeft:-1};
+      if(e.key in map && e.target.selectionStart===e.target.value.length*(map[e.key]>0?1:0)){
+        const all=[...document.querySelectorAll('.grid-in[data-id]')];
+        const i=all.indexOf(e.target)+map[e.key]; if(all[i]){ all[i].focus(); all[i].select(); e.preventDefault(); }
+      }
+      if(e.key==='ArrowDown'||e.key==='ArrowUp'||e.key==='Enter'){
+        const all=[...document.querySelectorAll('.grid-in[data-id]')];
+        const cur=all.indexOf(e.target);
+        const same=all.filter(x=>x.dataset.d===e.target.dataset.d);
+        const j=same.indexOf(e.target)+(e.key==='ArrowUp'?-1:1);
+        if(e.target.dataset.d && same[j]){ same[j].focus(); same[j].select(); e.preventDefault(); }
+        else if(e.key==='Enter'&&all[cur+1]){ all[cur+1].focus(); e.preventDefault(); }
+      }
+    };
+  });
+  document.querySelectorAll('select[data-id][data-k="model"]').forEach(sel=>{
+    sel.onchange = async e=>{
+      const lot=state.lots.find(l=>l.id===e.target.dataset.id); if(!lot) return;
+      lot.model=e.target.value; await putLot(lot); if(DB.mode==='firestore') render();
+    };
+  });
+  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
+    if(confirm('ลบแถวนี้?')){ await delLot(b.dataset.del); toast('ลบแล้ว'); }
+  });
+  document.querySelectorAll('[data-add-model]').forEach(b=>b.onclick=async()=>{
+    const k=b.dataset.addModel, carried=k.startsWith('C|'), eta=k.slice(2);
+    const models=state.config.models[state.yard]||[];
+    await addLot({yard:state.yard, month:state.month, eta, carried, model:models[0]||'', qty:0, plan:{}, actual:{}});
+  });
+  const addBtn=$('#addLot');
+  if(addBtn) addBtn.onclick=async()=>{
+    const def=`${YEAR}-${String(state.month).padStart(2,'0')}-01`;
+    const eta=prompt('วันที่ ETA (YYYY-MM-DD)', def); if(!eta) return;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(eta)){ toast('รูปแบบวันที่ไม่ถูกต้อง'); return; }
+    const models=state.config.models[state.yard]||[];
+    await addLot({yard:state.yard, month:state.month, eta, carried:false, model:models[0]||'', qty:0, plan:{}, actual:{}});
+    toast('เพิ่มล็อตแล้ว');
+  };
+
+  // notes
+  document.querySelectorAll('.note-in[data-note]').forEach(inp=>{
+    inp.onchange = e=>{
+      const key=e.target.dataset.note, f=e.target.dataset.f;
+      const [yard,month,day]=key.split('__');
+      putNote(key, {yard, month:+month, day:+day, [f]:e.target.value});
+      if(DB.mode==='local'){ state.notes[key]={...(state.notes[key]||{}), [f]:e.target.value}; }
+    };
+  });
+
+  // settings
+  const sp=$('#savePlan'); if(sp) sp.onclick=async()=>{
+    await putConfig({dailyPlanTotal: Math.max(0, parseInt($('#planTotal').value,10)||0)});
+    toast('บันทึกแผนแล้ว'); render();
+  };
+  document.querySelectorAll('[data-yplan]').forEach(inp=>inp.onchange=async e=>{
+    const y=e.target.dataset.yplan, raw=e.target.value.trim();
+    const yp={...(state.config.yardPlan||{})};
+    if(raw==='') delete yp[y]; else yp[y]=Math.max(0,parseInt(raw,10)||0);
+    await putConfig({yardPlan:yp}); render();
+  });
+  const ay=$('#addYard'); if(ay) ay.onclick=async()=>{
+    const v=$('#newYard').value.trim(); if(!v) return;
+    if(state.config.yards.includes(v)){ toast('มี yard นี้อยู่แล้ว'); return; }
+    const models={...state.config.models}; models[v]=models[v]||[...new Set(Object.values(state.config.models).flat())];
+    await putConfig({yards:[...state.config.yards, v], models}); toast('เพิ่ม yard แล้ว'); render();
+  };
+  // เพิ่มรุ่นรถให้ yard
+  const addModel = async (y, val)=>{
+    const md = (val||'').trim().toUpperCase(); if(!md) return;
+    const cur = state.config.models[y] || [];
+    if(cur.includes(md)){ toast('มีรุ่นนี้อยู่แล้ว'); return; }
+    const models={...state.config.models, [y]:[...cur, md].sort()};
+    await putConfig({models}); toast(`เพิ่มรุ่น ${md} แล้ว`); render();
+  };
+  document.querySelectorAll('[data-addmodel]').forEach(inp=>inp.onkeydown=e=>{
+    if(e.key==='Enter'){ e.preventDefault(); addModel(e.target.dataset.addmodel, e.target.value); }
+  });
+  document.querySelectorAll('[data-addmodelbtn]').forEach(b=>b.onclick=()=>{
+    const y=b.dataset.addmodelbtn, inp=document.querySelector(`[data-addmodel="${CSS.escape(y)}"]`);
+    addModel(y, inp?.value);
+  });
+  document.querySelectorAll('[data-delmodel]').forEach(b=>b.onclick=async()=>{
+    const y=b.dataset.delmodel, md=b.dataset.md;
+    const models={...state.config.models, [y]:(state.config.models[y]||[]).filter(x=>x!==md)};
+    await putConfig({models}); toast(`ลบรุ่น ${md} แล้ว`); render();
+  });
+  document.querySelectorAll('[data-delyard]').forEach(b=>b.onclick=async()=>{
+    const y=b.dataset.delyard;
+    if(!confirm(`ลบ ${y} ออกจากรายงาน? (ข้อมูลล็อตของ yard นี้จะยังอยู่ในฐานข้อมูล)`)) return;
+    await putConfig({yards: state.config.yards.filter(x=>x!==y)});
+    if(state.yard===y) state.yard=state.config.yards[0]; render();
+  });
+  const sb=$('#seedBtn')||$('#seedNow'); if(sb) sb.onclick=doSeed;
+  const sn=$('#seedNow'); if(sn) sn.onclick=doSeed;
+  const wb=$('#wipeBtn'); if(wb) wb.onclick=async()=>{
+    if(!confirm('ล้างข้อมูลล็อตทั้งหมด? ย้อนกลับไม่ได้')) return;
+    await writeLots([], true); toast('ล้างข้อมูลแล้ว'); render();
+  };
+  const ej=$('#expJson'); if(ej) ej.onclick=()=>{
+    download(`pdi-backup-${new Date().toISOString().slice(0,10)}.json`,
+      JSON.stringify({config:state.config, lots:state.lots, notes:state.notes}, null, 1), 'application/json');
+  };
+  const ij=$('#impJson'); if(ij) ij.onchange=async e=>{
+    const f=e.target.files[0]; if(!f) return;
+    try{
+      const o=JSON.parse(await f.text());
+      if(o.config) await putConfig(o.config);
+      if(o.lots) await writeLots(o.lots, true);
+      toast('นำเข้าข้อมูลแล้ว'); render();
+    }catch(err){ alert('ไฟล์ไม่ถูกต้อง: '+err.message); }
+  };
+  const ec=$('#expCsv'); if(ec) ec.onclick=exportCsv;
+}
+
+async function addLot(lot){
+  const id = `${lot.yard}__${lot.month}__${lot.eta}__${lot.model||'new'}__${Math.random().toString(36).slice(2,7)}`
+             .replace(/\//g,'-');
+  await putLot({id, ...lot});
+  if(DB.mode==='firestore') setTimeout(render, 250);
+}
+
+async function doSeed(){
+  const lots = SEED.lots.map((l,i)=>({
+    id:`${l.yard}__${l.month}__${l.eta}__${l.model}`.replace(/[\/#\[\]]/g,'-'),
+    yard:l.yard, month:l.month, eta:l.eta, carried:l.carried, model:l.model,
+    qty:l.qty, plan:l.plan, actual:l.actual
+  }));
+  await putConfig({ yards:SEED.yards, months:SEED.months, models:SEED.models,
+                    dailyPlanTotal:state.config.dailyPlanTotal||SEED.dailyPlanTotal, cutoff:SEED.cutoff });
+  await writeLots(lots, false);
+  toast(`นำเข้า ${lots.length} ล็อตแล้ว`);
+  setTimeout(render, 400);
+}
+
+function exportCsv(){
+  const m=state.month, n=daysIn(m), a=allYardAgg(m);
+  const head=['รายการ', ...Array.from({length:n},(_,i)=>i+1), 'รวม'];
+  const line=(l,arr)=>[l, ...arr.slice(1).map(v=>Math.round(v)), Math.round(arr.slice(1).reduce((x,y)=>x+y,0))];
+  const rows=[head, line('Plan PDI',a.plan), line('Actual PDI',a.actual),
+    line('Diff.', a.actual.map((v,i)=>v-a.plan[i])), line('รถเข้า (ETA)',a.arrivals)];
+  state.config.yards.forEach(y=>{ const ya=dayAgg(y,m); rows.push(line(`Actual · ${y}`, ya.actual)); });
+  download(`PDI-daily-${EN_MONTH[m-1]}${YEAR}.csv`, '﻿'+rows.map(r=>r.join(',')).join('\n'), 'text/csv');
+}
+function download(name, text, type){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+}
+
+/* ============================================================
+   Export Excel — สร้าง workbook ให้เหมือน PDI_Plan-Actual_All Yard Update <date>.xlsx
+   (port จาก build_linked.py) ใช้ ExcelJS โหลดตอนกดปุ่มเท่านั้น
+   ============================================================ */
+const XL = {
+  NAVY:'FF1F3864', BAND:'FF2E5C8A', HDR:'FFDCE6F1',
+  PLAN_H:'FF2E75B6', PLAN_C:'FFE4EEF8', PLAN_T:'FF1F4E79',
+  ACT_H:'FFED7D31', ACT_C:'FFFCEBDD', ACT_T:'FFA9500F',
+  BANDF:['FFA9D08E','FF4EA8DE','FFBFBFBF'], BANDT:['FF375623','FF1F4E79','FF404040'],
+  LAV:'FFE4DFEC', PEACH:'FFFCE4D6', T_BLUE:'FFDDEBF7', T_GREEN:'FFE2EFDA', T_YELL:'FFFFF2CC',
+  NA:'FFF2F2F2', PINK:'FFFFD6D6', INPUT:'FFFFF7DC',
+  WHITE:'FFFFFFFF', BLACK:'FF000000', CYAN:'FF00B0F0', RED:'FFFF0000', GREY:'FF404040', DKRED:'FFC00000', BLUE_IN:'FF0000FF',
+  NUMF:'#,##0;[Red]-#,##0;', TOTF:'#,##0;[Red]-#,##0;"-"', FMT:'#,##0;[Red]\\(#,##0\\)', PCT:'0.0%;;\\-',
+};
+const S_blk = {style:'thin', color:{argb:'FF000000'}};
+const S_dot = {style:'dotted', color:{argb:'FF808080'}};
+const S_thin = {style:'thin', color:{argb:'FFB8CCE4'}};
+const S_med = {style:'medium', color:{argb:'FF1F3864'}};
+const B = (l,r,t,b) => ({left:l, right:r, top:t, bottom:b});
+const BOXK = B(S_blk,S_blk,S_blk,S_blk), BOX = B(S_thin,S_thin,S_thin,S_thin);
+const BOXH = B(S_thin,S_thin,S_thin,S_med), BOXT = B(S_thin,S_thin,S_med,S_med);
+const XF = (sz=9,b=true,color=XL.NAVY,italic=false) => ({name:'Arial', size:sz, bold:b, italic, color:{argb:color}});
+const XP = argb => ({type:'pattern', pattern:'solid', fgColor:{argb}});
+const XCEN = {horizontal:'center', vertical:'middle'};
+const XCENW = {horizontal:'center', vertical:'middle', wrapText:true};
+const XLEFT = {horizontal:'left', vertical:'middle', indent:1};
+const XLEFTW = {horizontal:'left', vertical:'middle', wrapText:true, indent:1};
+const colL = i => { let s=''; while(i>0){ const m=(i-1)%26; s=String.fromCharCode(65+m)+s; i=(i-m-1)/26; } return s; };
+const FX = f => ({formula: f.startsWith('=') ? f.slice(1) : f});
+
+function xpaint(ws, r1,c1,r2,c2, o){
+  for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++){
+    const cell=ws.getCell(r,c);
+    if(o.fill) cell.fill=o.fill; if(o.border) cell.border=o.border; if(o.font) cell.font=o.font;
+    if(o.align) cell.alignment=o.align; if(o.fmt) cell.numFmt=o.fmt;
+  }
+}
+function xset(ws, r, c, value, o={}){
+  const cell=ws.getCell(r,c);
+  if(value!==undefined && value!==null) cell.value = (typeof value==='string' && value.startsWith('=')) ? FX(value) : value;
+  if(o.fill) cell.fill=o.fill; if(o.border) cell.border=o.border; if(o.font) cell.font=o.font;
+  if(o.align) cell.alignment=o.align; if(o.fmt) cell.numFmt=o.fmt;
+  return cell;
+}
+function xbanner(ws,row,c2,text,size=16,fill=XL.NAVY,height=26,align=XCEN){
+  ws.mergeCells(row,1,row,c2);
+  xset(ws,row,1,text,{font:{name:'Arial',size,bold:true,color:{argb:XL.WHITE}}, fill:XP(fill), align});
+  ws.getRow(row).height=height;
+}
+const q = n => `'${n}'`;
+const SHX = y => q(`กรอก-${y}`);
+
+async function loadExcelJS(){
+  if(window.ExcelJS) return window.ExcelJS;
+  await new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+    s.onload=res; s.onerror=()=>rej(new Error('โหลดไลบรารี ExcelJS ไม่ได้ (ต้องต่ออินเทอร์เน็ต)'));
+    document.head.appendChild(s);
+  });
+  return window.ExcelJS;
+}
+
+/* กลุ่มล็อตของ yard/เดือน เรียงเหมือน build_linked.py: ยกมาก่อน แล้วตาม ETA, รุ่นเรียงชื่อ */
+function lotGroups(yard, month){
+  const list = state.lots.filter(l=>l.yard===yard && Number(l.month)===Number(month));
+  const g = {};
+  list.forEach(l=>{ const k=(l.carried?'C|':'N|')+l.eta; (g[k]=g[k]||[]).push(l); });
+  const keys = Object.keys(g).sort((a,b)=>{
+    const ca=a[0], cb=b[0]; if(ca!==cb) return ca==='C'?-1:1;
+    return a.slice(2).localeCompare(b.slice(2));
+  });
+  return keys.map(k=>({ carried:k[0]==='C', eta:k.slice(2),
+    label:(k[0]==='C'?'ยกมา ':'')+etaLabel(k.slice(2)),
+    models:g[k].sort((a,b)=>(a.model||'').localeCompare(b.model||'')) }));
+}
+
+async function exportExcel(){
+  toast('กำลังสร้างไฟล์ Excel…', 4000);
+  const ExcelJS = await loadExcelJS();
+  const wb = new ExcelJS.Workbook();
+  wb.creator='PDI Plan & Actual'; wb.created=new Date();
+  const YARDS=state.config.yards, MONTHS=state.config.months, cutoff=state.config.cutoff||'';
+  const RANGE_TH = `${TH_MONTH[MONTHS[0]-1]} - ${TH_MONTH[MONTHS.at(-1)-1]} ${YEAR+543}  /  ${EN_MONTH[MONTHS[0]-1]}-${EN_MONTH[MONTHS.at(-1)-1]} ${YEAR}`;
+  const RANGE_EN = `${EN_MONTH[MONTHS[0]-1]}-${EN_MONTH[MONTHS.at(-1)-1]}`;
+  const ECOL0=7, ECOLN=37, ETOT=38, TOTL=colL(ETOT), BLANK_GROUPS=12;
+  const GT = {};   // (yard,month) -> [gp,ga,gd]
+  // สร้างชีตสรุปก่อนเพื่อให้ลำดับแท็บเป็น Report · สรุปรายเดือน · สรุปรายวัน · กรอก-*
+  ['Report','สรุปรายเดือน-แยก Yard','สรุปรายวัน'].forEach(n=>wb.addWorksheet(n));
+
+  /* ---------- 1. entry sheets ---------- */
+  for(const yard of YARDS){
+    const models = state.config.models[yard] || [];
+    const ws = wb.addWorksheet(`กรอก-${yard}`, {views:[{state:'frozen', xSplit:6, ySplit:3, zoomScale:80, showGridLines:false}]});
+    [[1,13],[2,8],[3,14],[4,12],[5,8],[6,12]].forEach(([c,w])=>ws.getColumn(c).width=w);
+    for(let i=ECOL0;i<ETOT;i++) ws.getColumn(i).width=4.3;
+    ws.getColumn(ETOT).width='9';   // ExcelJS ตัดค่า 9 (default) ทิ้ง จึงใส่เป็นสตริง
+
+    xbanner(ws,1,ETOT,`  Plan and Actual PDI  —  ${yard}   (${RANGE_EN} ${YEAR})`,14,XL.NAVY,24,{horizontal:'left',vertical:'middle'});
+    ws.mergeCells(2,1,2,ETOT);
+    xset(ws,2,1,"  ชีตนี้คือต้นทางของทั้งไฟล์ — กรอกที่นี่ที่เดียว ชีต Report / สรุปรายเดือน-แยก Yard / สรุปรายวัน อัปเดตตามเอง  ·  กรอกเฉพาะช่องสีเหลืองอ่อน  ·  ล็อตที่ทำไม่จบในเดือนจะยกไปเดือนถัดไปเป็นแถว 'ยกมา ...' พร้อมจำนวนที่เหลือ",
+      {font:XF(9,false,XL.GREY,true), fill:XP(XL.HDR), align:XLEFT});
+    ws.getRow(2).height=16;
+    xset(ws,3,1,'Plan PDI/วัน',{font:XF(9,true,XL.NAVY),fill:XP(XL.HDR),align:XCEN,border:BOX});
+    xset(ws,3,2,planPerDay(yard),{font:XF(10,true,XL.BLUE_IN),fill:XP(XL.INPUT),align:XCEN,fmt:XL.TOTF,border:BOX});
+    ws.mergeCells(3,3,3,ETOT);
+    xset(ws,3,3,'  คัน/วัน — แถว Plan PDI ของ Grand total ทุกเดือนใช้ตัวเลขนี้ แก้ช่องนี้ช่องเดียวเปลี่ยนทั้งชีต · วันหยุดพิมพ์ 0 ทับเฉพาะช่องวันนั้นในแถว Plan PDI ของ Grand total',
+      {font:XF(9,false,XL.GREY,true),fill:XP(XL.HDR),align:XLEFT,border:BOX});
+    ws.getRow(3).height=16;
+
+    let r=5;
+    for(const mnum of MONTHS){
+      const mi=mnum-1, ndays=daysIn(mnum);
+      const groups = lotGroups(yard,mnum);
+      for(let i=0;i<BLANK_GROUPS;i++) groups.push({label:null,carried:false,models:[{model:null,qty:null,plan:{},actual:{}}]});
+
+      const h1=r, h2=r+1;
+      [[1,'ETA'],[2,'Units'],[3,'Model'],[4,'Sub Model'],[5,"Q'ty"],[6,'Plan&Actual']].forEach(([cc,text])=>{
+        xpaint(ws,h1,cc,h2,cc,{fill:XP(XL.WHITE),border:BOXK,font:XF(9,true,XL.BLACK),align:XCENW});
+        xset(ws,h1,cc,text); ws.mergeCells(h1,cc,h2,cc);
+      });
+      xpaint(ws,h1,ECOL0,h1,ECOLN,{fill:XP(XL.LAV),border:BOXK,font:XF(10,true,XL.BLACK),align:XCEN});
+      xset(ws,h1,ECOL0,`${EN_MONTH[mi]}-${String(YEAR).slice(2)}   (${TH_MONTH[mi]} ${YEAR+543})`);
+      ws.mergeCells(h1,ECOL0,h1,ECOLN);
+      for(let day=1;day<=31;day++)
+        xset(ws,h2,ECOL0+day-1, day<=ndays?day:null, {font:XF(8,true,XL.BLACK),fill:XP(day<=ndays?XL.WHITE:XL.NA),align:XCEN,border:BOXK});
+      xpaint(ws,h1,ETOT,h2,ETOT,{fill:XP(XL.NAVY),border:BOXK,font:XF(9,true,XL.WHITE),align:XCENW});
+      xset(ws,h1,ETOT,'รวม'); ws.mergeCells(h1,ETOT,h2,ETOT);
+      ws.getRow(h1).height=20; ws.getRow(h2).height=14;
+      r+=2;
+
+      const first=r;
+      for(const grp of groups){
+        const g_first=r;
+        grp.models.forEach((mo,k)=>{
+          const rp=r, ra=r+1, band=XL.BANDF[k%3], btxt=XL.BANDT[k%3];
+          const mc = xset(ws,rp,3,mo.model,{fill:XP(band),font:XF(9,true,XL.BLACK),align:XCEN,border:B(S_blk,S_blk,S_blk,S_dot)});
+          if(models.length) mc.dataValidation={type:'list',allowBlank:true,formulae:[`"${models.join(',')}"`]};
+          xset(ws,ra,3,'(PDI as normal)',{fill:XP(band),font:XF(7,false,btxt),align:XCEN,border:B(S_blk,S_blk,S_dot,S_blk)});
+          xpaint(ws,rp,4,ra,4,{fill:XP(band),border:BOXK,font:XF(9,true,XL.BLACK),align:XCEN}); ws.mergeCells(rp,4,ra,4);
+          xpaint(ws,rp,5,ra,5,{fill:XP(XL.INPUT),border:BOXK,font:XF(9,true,XL.BLACK),align:XCEN,fmt:XL.TOTF});
+          xset(ws,rp,5, mo.qty??null); ws.mergeCells(rp,5,ra,5);
+          xset(ws,rp,6,'Plan PDI',{font:XF(8,true,XL.NAVY),fill:XP(XL.WHITE),align:XCEN,border:B(S_blk,S_blk,S_blk,S_dot)});
+          xset(ws,ra,6,'Actual PDI',{font:XF(8,true,XL.CYAN),fill:XP(XL.WHITE),align:XCEN,border:B(S_blk,S_blk,S_dot,S_blk)});
+          for(let day=1;day<=31;day++){
+            const live=day<=ndays, c=ECOL0+day-1;
+            const pv = live ? (Number(mo.plan?.[day])||null) : null;
+            xset(ws,rp,c,pv,{font:XF(9,true,XL.BLACK),align:XCEN,fmt:XL.NUMF,fill:XP(live?XL.INPUT:XL.NA),border:B(S_blk,S_blk,S_blk,S_dot)});
+            const av = live ? (Number(mo.actual?.[day])||null) : null;
+            xset(ws,ra,c,av,{font:XF(9,true,XL.CYAN),align:XCEN,fmt:XL.NUMF,fill:XP(live?XL.INPUT:XL.NA),border:B(S_blk,S_blk,S_dot,S_blk)});
+          }
+          [[rp,XL.BLACK],[ra,XL.CYAN]].forEach(([rr,txt])=>
+            xset(ws,rr,ETOT,`=SUM(${colL(ECOL0)}${rr}:${colL(ECOLN)}${rr})`,{font:XF(9,true,txt),fill:XP(XL.WHITE),align:XCEN,fmt:XL.TOTF,border:BOXK}));
+          ws.getRow(rp).height=15; ws.getRow(ra).height=15;
+          r+=2;
+        });
+        const g_last=r-1, bg=grp.carried?XL.PEACH:XL.INPUT, fg=grp.carried?XL.DKRED:XL.BLACK;
+        xpaint(ws,g_first,1,g_last,2,{fill:XP(bg),border:BOXK,font:XF(9,true,fg),align:XCENW});
+        xset(ws,g_first,1,grp.label); ws.mergeCells(g_first,1,g_last,1);
+        xset(ws,g_first,2,`=IF(SUM(E${g_first}:E${g_last})=0,"",SUM(E${g_first}:E${g_last})&" units")`);
+        ws.mergeCells(g_first,2,g_last,2);
+      }
+      const last=r-1;
+
+      /* Grand total */
+      const gp=r, ga=r+1, gd=r+2;
+      xpaint(ws,gp,1,gd,5,{fill:XP(XL.NAVY),border:BOXT,font:XF(9,true,XL.WHITE),align:XCEN});
+      xset(ws,gp,1,'Grand total'); ws.mergeCells(gp,1,gd,4);
+      xset(ws,gp,5,`=SUM(E${first}:E${last})`); xpaint(ws,gp,5,gd,5,{fmt:XL.TOTF}); ws.mergeCells(gp,5,gd,5);
+      const gtf=(rr,L,isTotal)=>{
+        if(rr===gd) return `=${L}${ga}-${L}${gp}`;
+        if(rr===gp) return isTotal ? `=SUM(${colL(ECOL0)}${gp}:${colL(ECOLN)}${gp})` : '=$B$3';
+        return `=SUMIF($F$${first}:$F$${last},"Actual PDI",${L}${first}:${L}${last})`;
+      };
+      [[gp,'Plan PDI',XL.PLAN_H,XL.WHITE],[ga,'Actual PDI',XL.ACT_H,XL.WHITE],[gd,'Diff.',XL.T_YELL,XL.DKRED]].forEach(([rr,text,bg,fg])=>{
+        xset(ws,rr,6,text,{font:XF(8,true,fg),fill:XP(bg),align:XCEN,border:BOXT});
+        for(let day=1;day<=31;day++){
+          const c=ECOL0+day-1;
+          xset(ws,rr,c, day<=ndays?gtf(rr,colL(c),false):null, {font:XF(9,true,fg),fill:XP(bg),align:XCEN,fmt:XL.NUMF,border:BOXT});
+        }
+        xset(ws,rr,ETOT,gtf(rr,TOTL,true),{font:XF(9,true,XL.WHITE),fill:XP(XL.NAVY),align:XCEN,fmt:XL.TOTF,border:BOXT});
+      });
+      r=gd+2;
+
+      /* daily summary + problem log */
+      ws.mergeCells(r,1,r,ETOT);
+      xset(ws,r,1,'  สรุปรายวัน + บันทึกปัญหา',{font:{name:'Arial',size:10,bold:true,color:{argb:XL.WHITE}},fill:XP(XL.BAND),align:XLEFT});
+      r+=1;
+      const hr=r;
+      [[1,1,'วันที่',XL.HDR],[2,3,'Plan',XL.PLAN_H],[4,5,'Actual',XL.ACT_H],[6,7,'Diff.',XL.HDR],[8,10,'สถานะ',XL.HDR],
+       [11,27,'ปัญหา / สาเหตุที่ไม่ได้ตามเป้า',XL.T_YELL],[28,ETOT,'ผู้บันทึก',XL.T_YELL]].forEach(([c1,c2,text,bg])=>{
+        const fg=(bg===XL.PLAN_H||bg===XL.ACT_H)?XL.WHITE:XL.NAVY;
+        xpaint(ws,hr,c1,hr,c2,{fill:XP(bg),border:BOXH,font:XF(9,true,fg),align:XCENW});
+        xset(ws,hr,c1,text); if(c2>c1) ws.mergeCells(hr,c1,hr,c2);
+      });
+      ws.getRow(hr).height=24; r+=1;
+      const first_log=r;
+      for(let day=1;day<=ndays;day++){
+        const L=colL(ECOL0+day-1);
+        xset(ws,r,1,day,{font:XF(9,true,XL.NAVY),fill:XP(XL.WHITE),align:XCEN,border:BOX});
+        [[2,3,`=${L}${gp}`,XL.PLAN_T,XL.PLAN_C,XL.TOTF],[4,5,`=${L}${ga}`,XL.ACT_T,XL.ACT_C,XL.TOTF],
+         [6,7,`=D${r}-B${r}`,XL.DKRED,XL.WHITE,XL.TOTF],
+         [8,10,`=IF(B${r}=0,"-",IF(D${r}>=B${r},"ตามเป้า","ต่ำกว่าเป้า "&B${r}-D${r}&" คัน"))`,XL.NAVY,XL.WHITE,'General']].forEach(([c1,c2,f,fg,bg,fmt])=>{
+          xpaint(ws,r,c1,r,c2,{fill:XP(bg),border:BOX,font:XF(9,true,fg),align:XCEN,fmt});
+          xset(ws,r,c1,f); ws.mergeCells(r,c1,r,c2);
+        });
+        const key=`${yard}__${mnum}__${day}`, note=state.notes[key]||{};
+        [[11,27,note.text||null],[28,ETOT,note.by||null]].forEach(([c1,c2,v])=>{
+          xpaint(ws,r,c1,r,c2,{fill:XP(XL.INPUT),border:BOX,font:XF(9,false,XL.BLUE_IN),align:XLEFTW});
+          xset(ws,r,c1,v); ws.mergeCells(r,c1,r,c2);
+        });
+        ws.getRow(r).height=16; r+=1;
+      }
+      const last_log=r-1;
+      ws.addConditionalFormatting({ref:`K${first_log}:AA${last_log}`, rules:[
+        {type:'expression', formulae:[`AND($F${first_log}<0,$K${first_log}="")`], style:{fill:{type:'pattern',pattern:'solid',bgColor:{argb:XL.PINK}}}}]});
+      ws.addConditionalFormatting({ref:`H${first_log}:J${last_log}`, rules:[
+        {type:'expression', formulae:[`$F${first_log}<0`], style:{fill:{type:'pattern',pattern:'solid',bgColor:{argb:XL.PINK}}, font:{name:'Arial',size:9,bold:true,color:{argb:XL.DKRED}}}},
+        {type:'expression', formulae:[`AND($B${first_log}>0,$F${first_log}>=0)`], style:{fill:{type:'pattern',pattern:'solid',bgColor:{argb:XL.T_GREEN}}}}]});
+      xset(ws,r,1,'รวมเดือน',{font:XF(9,true,XL.WHITE),fill:XP(XL.NAVY),align:XLEFT,border:BOXT});
+      [[2,3,`=SUM(B${first_log}:B${last_log})`],[4,5,`=SUM(D${first_log}:D${last_log})`],[6,7,`=D${r}-B${r}`],
+       [8,10,`=IF(B${r}=0,"-",TEXT(D${r}/B${r},"0.0%"))`]].forEach(([c1,c2,f])=>{
+        xpaint(ws,r,c1,r,c2,{fill:XP(XL.NAVY),border:BOXT,font:XF(9,true,XL.WHITE),align:XCEN,fmt:XL.TOTF});
+        xset(ws,r,c1,f); ws.mergeCells(r,c1,r,c2);
+      });
+      ws.getCell(r,8).numFmt='General';
+      xpaint(ws,r,11,r,ETOT,{fill:XP(XL.NAVY),border:BOXT});
+      GT[`${yard}|${mnum}`]=[gp,ga,gd];
+      r+=3;
+    }
+  }
+
+  /* ---------- 2. monthly summary by yard ---------- */
+  {
+    const ws=wb.getWorksheet('สรุปรายเดือน-แยก Yard'); ws.views=[{state:'frozen',xSplit:1,ySplit:5,showGridLines:false}];
+    ws.getColumn(1).width=20;
+    const ncol=1+(YARDS.length+1)*3+1;
+    for(let i=2;i<=ncol;i++) ws.getColumn(i).width=10;
+    xbanner(ws,1,ncol,'สรุป PDI รายเดือน แยก Yard  |  PDI Monthly Summary by Yard');
+    xbanner(ws,2,ncol,RANGE_TH,12,XL.BAND,20);
+    xpaint(ws,4,1,5,1,{fill:XP(XL.HDR),border:BOXK,font:XF(10,true,XL.NAVY),align:XCENW});
+    xset(ws,4,1,'เดือน / Month'); ws.mergeCells(4,1,5,1);
+    const groups=YARDS.map(y=>[y,y]).concat([['รวมทุก Yard',null]]);
+    let cc=2; const gcol={};
+    groups.forEach(([label,yard])=>{
+      xpaint(ws,4,cc,4,cc+2,{fill:XP(yard?XL.LAV:XL.PEACH),border:BOXK,font:XF(10,true,XL.BLACK),align:XCEN});
+      xset(ws,4,cc,label); ws.mergeCells(4,cc,4,cc+2);
+      [['Plan',XL.T_BLUE,XL.NAVY],['Actual',XL.T_GREEN,XL.NAVY],['Diff.',XL.T_YELL,XL.RED]].forEach(([t,bg,fg],k)=>
+        xset(ws,5,cc+k,t,{font:XF(9,true,fg),fill:XP(bg),align:XCEN,border:BOXK}));
+      gcol[label]=cc; cc+=3;
+    });
+    const PCT_COL=cc;
+    xpaint(ws,4,PCT_COL,5,PCT_COL,{fill:XP(XL.HDR),border:BOXK,font:XF(9,true,XL.NAVY),align:XCENW});
+    xset(ws,4,PCT_COL,'%\nสำเร็จ'); ws.mergeCells(4,PCT_COL,5,PCT_COL);
+    const tot=gcol['รวมทุก Yard'];
+    MONTHS.forEach((mnum,pos)=>{
+      const r=6+pos;
+      xset(ws,r,1,`${TH_MONTH[mnum-1]} / ${EN_MONTH[mnum-1]}`,{font:XF(10,true,XL.NAVY),fill:XP(XL.WHITE),align:XLEFT,border:BOXK});
+      groups.forEach(([label,yard])=>{
+        const c0=gcol[label];
+        const vals = yard ? [0,1,2].map(k=>`=${SHX(yard)}!$${TOTL}$${GT[`${yard}|${mnum}`][k]}`)
+                          : [0,1,2].map(k=>'='+YARDS.map(y=>`${colL(gcol[y]+k)}${r}`).join('+'));
+        vals.forEach((v,k)=>xset(ws,r,c0+k,v,{font:XF(9,true,[XL.BLACK,XL.NAVY,XL.RED][k]),fill:XP([XL.T_BLUE,XL.T_GREEN,XL.T_YELL][k]),align:XCEN,fmt:XL.FMT,border:BOXK}));
+      });
+      xset(ws,r,PCT_COL,`=IF(${colL(tot)}${r}=0,"",${colL(tot+1)}${r}/${colL(tot)}${r})`,{font:XF(9,true,XL.GREY),fill:XP(XL.WHITE),align:XCEN,fmt:XL.PCT,border:BOXK});
+    });
+    const tr=6+MONTHS.length;
+    xset(ws,tr,1,`รวม ${RANGE_EN} / Total`,{font:XF(10,true,XL.WHITE),fill:XP(XL.NAVY),align:XLEFT,border:BOXT});
+    for(let c0=2;c0<PCT_COL;c0++) xset(ws,tr,c0,`=SUM(${colL(c0)}6:${colL(c0)}${tr-1})`,{font:XF(9,true,XL.WHITE),fill:XP(XL.NAVY),align:XCEN,fmt:XL.FMT,border:BOXT});
+    xset(ws,tr,PCT_COL,`=IF(${colL(tot)}${tr}=0,"",${colL(tot+1)}${tr}/${colL(tot)}${tr})`,{font:XF(9,true,XL.WHITE),fill:XP(XL.NAVY),align:XCEN,fmt:XL.PCT,border:BOXT});
+    xset(ws,tr+2,1,'ดึงจากแถว Grand total ของชีต กรอก- ทุกใบอัตโนมัติ — ไม่ต้องกรอกในหน้านี้',{font:XF(8,false,XL.GREY,true)});
+  }
+
+  /* ---------- 3. daily summary (all yards) ---------- */
+  {
+    const ws=wb.getWorksheet('สรุปรายวัน'); ws.views=[{state:'frozen',xSplit:1,ySplit:3,zoomScale:85,showGridLines:false}];
+    ws.getColumn(1).width=22; for(let i=2;i<=32;i++) ws.getColumn(i).width=5.6; ws.getColumn(33).width=11;
+    xbanner(ws,1,33,'สรุป PDI รายวัน รวมทุก Yard  |  PDI Daily Summary - All Yards');
+    xbanner(ws,2,33,RANGE_TH,12,XL.BAND,20);
+    let r=4;
+    for(const mnum of MONTHS){
+      const mi=mnum-1, ndays=daysIn(mnum);
+      xbanner(ws,r,33,`${TH_MONTH[mi]} ${YEAR+543}  /  ${EN_MONTH[mi]}-${String(YEAR).slice(2)}`,11,XL.BAND,18,XLEFT);
+      const hr=r+1;
+      xset(ws,hr,1,'วันที่ / Day',{font:XF(10,true,XL.NAVY),fill:XP(XL.HDR),align:XCEN,border:BOXK});
+      for(let day=1;day<=31;day++) xset(ws,hr,1+day, day<=ndays?day:null,{font:XF(9,true,XL.NAVY),fill:XP(day<=ndays?XL.HDR:XL.NA),align:XCEN,border:BOXK});
+      xset(ws,hr,33,'รวมทั้งเดือน',{font:XF(9,true,XL.WHITE),fill:XP(XL.NAVY),align:XCENW,border:BOXK});
+      ws.getRow(hr).height=22;
+      [['Plan PDI',0,XL.BLACK,XL.T_BLUE],['Actual PDI',1,XL.NAVY,XL.T_GREEN],['Diff.',2,XL.RED,XL.T_YELL]].forEach(([label,idx,fg,bg],k)=>{
+        const rr=hr+1+k;
+        xset(ws,rr,1,label,{font:XF(10,true,fg),fill:XP(bg),align:XLEFT,border:BOXK});
+        for(let day=1;day<=31;day++){
+          const v = day<=ndays ? '='+YARDS.map(y=>`${SHX(y)}!${colL(ECOL0+day-1)}${GT[`${y}|${mnum}`][idx]}`).join('+') : null;
+          xset(ws,rr,1+day,v,{fill:XP(day<=ndays?bg:XL.NA),font:XF(9,true,fg),align:XCEN,fmt:XL.FMT,border:BOXK});
+        }
+        xset(ws,rr,33,'='+YARDS.map(y=>`${SHX(y)}!$${TOTL}$${GT[`${y}|${mnum}`][idx]}`).join('+'),{font:XF(10,true,XL.WHITE),fill:XP(XL.NAVY),align:XCEN,fmt:XL.FMT,border:BOXK});
+      });
+      const pr=hr+4;
+      xset(ws,pr,1,'% ความสำเร็จ',{font:XF(10,true,XL.NAVY),fill:XP(XL.HDR),align:XLEFT,border:BOXK});
+      for(let day=1;day<=32;day++){
+        const colx = day===32?33:1+day, live = day===32||day<=ndays, L=colL(colx);
+        xset(ws,pr,colx, live?`=IF(N(${L}${hr+1})=0,"",${L}${hr+2}/${L}${hr+1})`:null,
+          {fill:XP(day===32?XL.NAVY:(live?XL.WHITE:XL.NA)), font:XF(day===32?10:9,true,day===32?XL.WHITE:XL.GREY), align:XCEN, fmt:XL.PCT, border:BOXK});
+      }
+      r=pr+2;
+    }
+    ws.mergeCells(r,1,r,33);
+    xset(ws,r,1,'รวมแถว Grand total ของชีต กรอก- ทุกใบอัตโนมัติ — ไม่ต้องกรอกในหน้านี้  ·  ช่องเทา = วันที่ไม่มีจริงในเดือนนั้น',{font:XF(8,false,XL.GREY,true)});
+  }
+
+  /* ---------- 4. Report ---------- */
+  {
+    const ws=wb.getWorksheet('Report'); ws.views=[{state:'frozen',xSplit:0,ySplit:6,showGridLines:false}];
+    [[1,26.9],[2,15],[3,15],[4,14],[5,16],[6,26]].forEach(([c,w])=>ws.getColumn(c).width=w);
+    xbanner(ws,1,6,'สรุป PDI รายเดือน รวมทุก Yard  |  PDI Monthly Summary - All Yards');
+    ws.mergeCells(3,1,3,6);
+    xset(ws,3,1,`ข้อมูลนำเข้าจาก Defect list Co-inspection ถึง ${cutoff} (Plan = Match Tax/Shuttle, Actual = PDI, ตัด Move from = MAIN YARD) · กรอกต่อที่ชีต กรอก- ของแต่ละ Yard · รวม ${YARDS.length} Yard: ${YARDS.join(', ')}`,
+      {font:XF(9,false,XL.NAVY),fill:XP(XL.HDR),align:XLEFTW});
+    xpaint(ws,3,1,3,6,{border:BOX}); ws.getRow(3).height=28;
+    xbanner(ws,5,6,RANGE_TH,12,XL.BAND,20);
+    const header=(row,first)=>[[1,first,XL.HDR,XL.NAVY],[2,'Plan PDI',XL.PLAN_H,XL.WHITE],[3,'Actual PDI',XL.ACT_H,XL.WHITE],[4,'Diff.',XL.HDR,XL.NAVY],[5,'% ความสำเร็จ',XL.HDR,XL.NAVY],[6,'หมายเหตุ / Remark',XL.HDR,XL.NAVY]]
+      .forEach(([c0,t,bg,fg])=>xset(ws,row,c0,t,{font:XF(10,true,fg),fill:XP(bg),align:XCEN,border:BOXH}));
+    const rowf=(row,label,pf,af)=>{
+      xset(ws,row,1,label,{font:XF(10,true,XL.NAVY),fill:XP(XL.WHITE),align:XLEFT,border:BOX});
+      xset(ws,row,2,pf,{font:XF(10,true,XL.PLAN_T),fill:XP(XL.PLAN_C),align:XCEN,fmt:XL.FMT,border:BOX});
+      xset(ws,row,3,af,{font:XF(10,true,XL.ACT_T),fill:XP(XL.ACT_C),align:XCEN,fmt:XL.FMT,border:BOX});
+      xset(ws,row,4,`=C${row}-B${row}`,{font:XF(10,true,XL.DKRED),fill:XP(XL.WHITE),align:XCEN,fmt:XL.FMT,border:BOX});
+      xset(ws,row,5,`=IF(B${row}=0,"",C${row}/B${row})`,{font:XF(10,true,XL.GREY),fill:XP(XL.WHITE),align:XCEN,fmt:XL.PCT,border:BOX});
+      xpaint(ws,row,6,row,6,{font:XF(9,false,XL.BLUE_IN),fill:XP(XL.INPUT),align:XLEFT,border:BOX});
+    };
+    const totf=(row,label,r1,r2)=>{
+      xset(ws,row,1,label,{font:XF(10,true,XL.WHITE),fill:XP(XL.NAVY),align:XLEFT,border:BOXT});
+      [[2,`=SUM(B${r1}:B${r2})`,XL.FMT],[3,`=SUM(C${r1}:C${r2})`,XL.FMT],[4,`=C${row}-B${row}`,XL.FMT],[5,`=IF(B${row}=0,"",C${row}/B${row})`,XL.PCT]]
+        .forEach(([c0,v,fmt])=>xset(ws,row,c0,v,{font:XF(10,true,XL.WHITE),fill:XP(XL.NAVY),align:XCEN,fmt,border:BOXT}));
+      xpaint(ws,row,6,row,6,{fill:XP(XL.NAVY),border:BOXT});
+    };
+    header(6,'เดือน / Month');
+    MONTHS.forEach((mnum,pos)=>rowf(7+pos,EN_MONTH[mnum-1],
+      '='+YARDS.map(y=>`${SHX(y)}!$${TOTL}$${GT[`${y}|${mnum}`][0]}`).join('+'),
+      '='+YARDS.map(y=>`${SHX(y)}!$${TOTL}$${GT[`${y}|${mnum}`][1]}`).join('+')));
+    const cutM = (()=>{ const p=cutoff.split('/'); return p.length===3 ? Number(p[1]) : null; })();
+    if(cutM && MONTHS.includes(cutM)) xset(ws,7+MONTHS.indexOf(cutM),6,`Cut off ${cutoff}`);
+    const TOTR=7+MONTHS.length;
+    totf(TOTR,`รวม ${RANGE_EN} / Total`,7,TOTR-1);
+    const YHDR=TOTR+2;
+    xbanner(ws,YHDR,6,`แยกราย Yard (${RANGE_EN} ${YEAR})  /  By Yard`,12,XL.BAND,20);
+    header(YHDR+1,'Yard');
+    YARDS.forEach((y,yi)=>rowf(YHDR+2+yi,y,
+      '='+MONTHS.map(m=>`${SHX(y)}!$${TOTL}$${GT[`${y}|${m}`][0]}`).join('+'),
+      '='+MONTHS.map(m=>`${SHX(y)}!$${TOTL}$${GT[`${y}|${m}`][1]}`).join('+')));
+    const YTOT=YHDR+2+YARDS.length;
+    totf(YTOT,'รวมทุก Yard / Total',YHDR+2,YTOT-1);
+    xset(ws,YTOT+2,1,'สายข้อมูล:  กรอก-<Yard>  →  หน้านี้ + สรุปรายเดือน-แยก Yard + สรุปรายวัน   ·   กรอกที่ชีต กรอก- ที่เดียว',{font:XF(8,false,XL.GREY,true)});
+  }
+
+  wb.views=[{firstSheet:0, activeTab:0, visibility:'visible'}];
+
+  const buf = await wb.xlsx.writeBuffer();
+  const [dd,mm,yy]=(cutoff||'').split('/');
+  const stamp = (dd&&mm&&yy) ? `${dd}_${mm}_${yy}` : new Date().toISOString().slice(0,10).replace(/-/g,'_');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  a.download=`PDI_Plan-Actual_All Yard Update ${stamp}.xlsx`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  toast('ดาวน์โหลดไฟล์ Excel แล้ว');
+}
+
+/* ---------- boot ---------- */
+$('#tabs').onclick = e=>{
+  const b=e.target.closest('button[data-v]'); if(!b) return;
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on', x===b));
+  state.view=b.dataset.v; render();
+};
+$('#xlsBtn').onclick = ()=>exportExcel().catch(e=>{ console.error(e); alert('สร้างไฟล์ไม่สำเร็จ: '+e.message); });
+$('#themeBtn').onclick = ()=>{
+  const cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',cur);
+  try{ localStorage.setItem('pdi_theme',cur); }catch(e){}
+};
+try{ const t=localStorage.getItem('pdi_theme'); if(t) document.documentElement.setAttribute('data-theme',t); }catch(e){}
+
+const today=new Date();
+if(today.getFullYear()===YEAR && SEED.months.includes(today.getMonth()+1)) state.month=today.getMonth()+1;
+
+initDB().then(()=>{ state.ready=true; render(); });
+</script>
+</body>
+</html>
