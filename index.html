@@ -179,12 +179,13 @@ pre{background:var(--bg); padding:12px; border-radius:10px; overflow:auto; font-
 
 <script type="module">
 /* ============================================================
-   PDI Plan & Actual — single-file app, Firestore-backed
+   PDI Plan & Actual — single-file app, Realtime Database-backed
    ข้อมูล: collection "lots", "notes", doc "config/settings"
    ============================================================ */
 const firebaseConfig = {
   apiKey: "AIzaSyAHH0WLRHe1mfwPDqWqySQnWUKrXRHuii4",
   authDomain: "pdi-reportsjwd.firebaseapp.com",
+  databaseURL: "https://pdi-reportsjwd-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "pdi-reportsjwd",
   storageBucket: "pdi-reportsjwd.firebasestorage.app",
   messagingSenderId: "253093703663",
@@ -227,40 +228,52 @@ function flagSaving(){
   saveTimer=setTimeout(()=>{ c.classList.add('ok'); $('#saveText').textContent='บันทึกแล้ว'; }, 700);
 }
 
-/* ---------- storage layer: Firestore, else localStorage ---------- */
-const DB = { mode:'local', fs:null, api:null };
+/* ---------- storage layer: Firebase Realtime Database, else localStorage ---------- */
+const DB = { mode:'local', db:null, api:null, reason:null };
 const LS_KEY = 'pdi_plan_actual_v1';
+const clean = o => JSON.parse(JSON.stringify(o??null));          // ตัด undefined/ฟังก์ชันออก ให้ RTDB รับได้
+const keyOK = s => String(s).replace(/[.#$/\[\]]/g,'-');          // อักขระต้องห้ามของ RTDB key
 
 async function initDB(){
   try{
-    const [{initializeApp}, fs] = await Promise.all([
+    const [appMod, rtdb] = await Promise.all([
       import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js'),
-      import('https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js')
+      import('https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js')
     ]);
-    const app = initializeApp(firebaseConfig);
-    DB.fs = fs.getFirestore(app); DB.api = fs; DB.mode='firestore';
-    setChip('ok','Firestore • pdi-reportsjwd');
+    const app = appMod.getApps().length ? appMod.getApp() : appMod.initializeApp(firebaseConfig);
+    DB.db = rtdb.getDatabase(app); DB.api = rtdb; DB.mode='rtdb';
+    setChip('ok','ออนไลน์ • Realtime Database');
+    // อ่าน config ก่อนหนึ่งครั้ง เพื่อจับ error สิทธิ์ให้เร็ว
     await new Promise((res,rej)=>{
       const t=setTimeout(()=>rej(new Error('timeout')), 12000);
-      const un = fs.onSnapshot(fs.doc(DB.fs,'config','settings'), snap=>{
+      rtdb.onValue(rtdb.ref(DB.db,'config/settings'), snap=>{
         clearTimeout(t);
-        if(snap.exists()) Object.assign(state.config, snap.data());
-        res(un);
-      }, err=>{ clearTimeout(t); rej(err); });
+        const v=snap.val(); if(v) Object.assign(state.config, v);
+        res();
+      }, err=>{ clearTimeout(t); rej(err); }, {onlyOnce:true});
     });
-    fs.onSnapshot(fs.collection(DB.fs,'lots'), snap=>{
-      state.lots = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    // subscribe แบบเรียลไทม์
+    rtdb.onValue(rtdb.ref(DB.db,'config/settings'), snap=>{ const v=snap.val(); if(v) Object.assign(state.config, v); if(state.ready) render(); });
+    rtdb.onValue(rtdb.ref(DB.db,'lots'), snap=>{
+      const v=snap.val()||{}; state.lots = Object.entries(v).map(([id,d])=>({id, ...d}));
       state.ready = true; render();
-    }, e=>{ console.error(e); toast('อ่านข้อมูล lots ไม่ได้: '+e.code); });
-    fs.onSnapshot(fs.collection(DB.fs,'notes'), snap=>{
-      const n={}; snap.docs.forEach(d=>n[d.id]=d.data()); state.notes=n; render();
-    }, e=>console.error(e));
+    }, e=>{ console.error(e); toast('อ่านข้อมูล lots ไม่ได้: '+(e.code||e.message)); });
+    rtdb.onValue(rtdb.ref(DB.db,'notes'), snap=>{ state.notes = snap.val()||{}; if(state.ready) render(); }, e=>console.error(e));
   }catch(err){
-    console.warn('Firestore unavailable →  localStorage', err);
-    DB.mode='local';
-    setChip('err','โหมดออฟไลน์ (เก็บในเครื่อง)');
+    console.warn('Realtime Database unavailable →  localStorage', err);
+    DB.mode='local'; DB.reason = diagnose(err);
+    setChip('err','ออฟไลน์: '+DB.reason.short);
     loadLocal(); state.ready=true;
   }
+}
+function diagnose(err){
+  const raw = (err && (err.code||err.message||'')).toString().toLowerCase();
+  const fileProto = location.protocol==='file:';
+  if(raw.includes('permission')||raw.includes('denied'))
+    return {short:'Database rules ปิดอยู่', fix:'rules', detail:'Realtime Database มีอยู่แล้ว แต่กฎ (Rules) ยังปิดการอ่าน/เขียน — ต้องเปิด Rules ในหน้า Firebase Console'};
+  if(fileProto)
+    return {short:'เปิดจากไฟล์ในเครื่อง', fix:'host', detail:'ไฟล์ถูกเปิดแบบ file:// เบราว์เซอร์บล็อกการต่อฐานข้อมูล — ต้องเปิดผ่านลิงก์ http(s) หรือ deploy ขึ้น Firebase Hosting'};
+  return {short:'เชื่อมต่อไม่ได้', fix:'net', detail:'ต่อฐานข้อมูลไม่สำเร็จ ('+raw+') — ตรวจอินเทอร์เน็ตหรือลองใหม่'};
 }
 function setChip(cls,text){
   const c=$('#dbChip'); c.classList.remove('ok','err'); if(cls) c.classList.add(cls);
@@ -280,10 +293,9 @@ function saveLocal(){
 /* write helpers — same call signature in both modes */
 async function putLot(lot){
   flagSaving();
-  if(DB.mode==='firestore'){
-    const {doc,setDoc} = DB.api;
-    const {id, ...data} = lot;
-    await setDoc(doc(DB.fs,'lots',id), data, {merge:true});
+  if(DB.mode==='rtdb'){
+    const {ref,set} = DB.api; const {id, ...data} = lot;
+    await set(ref(DB.db,'lots/'+keyOK(id)), clean(data));
   }else{
     const i = state.lots.findIndex(l=>l.id===lot.id);
     if(i<0) state.lots.push(lot); else state.lots[i]=lot;
@@ -292,33 +304,25 @@ async function putLot(lot){
 }
 async function delLot(id){
   flagSaving();
-  if(DB.mode==='firestore'){ const {doc,deleteDoc}=DB.api; await deleteDoc(doc(DB.fs,'lots',id)); }
+  if(DB.mode==='rtdb'){ const {ref,remove}=DB.api; await remove(ref(DB.db,'lots/'+keyOK(id))); }
   else { state.lots = state.lots.filter(l=>l.id!==id); saveLocal(); render(); }
 }
 async function putNote(key, data){
   flagSaving();
-  if(DB.mode==='firestore'){ const {doc,setDoc}=DB.api; await setDoc(doc(DB.fs,'notes',key), data, {merge:true}); }
+  if(DB.mode==='rtdb'){ const {ref,update}=DB.api; await update(ref(DB.db,'notes/'+keyOK(key)), clean(data)); }
   else { state.notes[key]={...(state.notes[key]||{}), ...data}; saveLocal(); }
 }
 async function putConfig(patch){
   Object.assign(state.config, patch); flagSaving();
-  if(DB.mode==='firestore'){ const {doc,setDoc}=DB.api; await setDoc(doc(DB.fs,'config','settings'), state.config, {merge:true}); }
+  if(DB.mode==='rtdb'){ const {ref,set}=DB.api; await set(ref(DB.db,'config/settings'), clean(state.config)); }
   else { saveLocal(); render(); }
 }
 async function writeLots(lots, wipe=false){
-  if(DB.mode==='firestore'){
-    const {collection,getDocs,writeBatch,doc,setDoc} = DB.api;
-    if(wipe){
-      const snap = await getDocs(collection(DB.fs,'lots'));
-      for(let i=0;i<snap.docs.length;i+=400){
-        const b=writeBatch(DB.fs); snap.docs.slice(i,i+400).forEach(d=>b.delete(d.ref)); await b.commit();
-      }
-    }
-    for(let i=0;i<lots.length;i+=400){
-      const b=writeBatch(DB.fs);
-      lots.slice(i,i+400).forEach(l=>{ const {id,...data}=l; b.set(doc(DB.fs,'lots',id), data); });
-      await b.commit();
-    }
+  if(DB.mode==='rtdb'){
+    const {ref,set,update} = DB.api;
+    if(wipe) await set(ref(DB.db,'lots'), null);
+    const patch={}; lots.forEach(l=>{ const {id,...data}=l; patch[keyOK(id)]=clean(data); });
+    if(Object.keys(patch).length) await update(ref(DB.db,'lots'), patch);
   }else{
     if(wipe) state.lots = lots.slice();
     else { const map=new Map(state.lots.map(l=>[l.id,l])); lots.forEach(l=>map.set(l.id,l)); state.lots=[...map.values()]; }
@@ -369,12 +373,12 @@ function render(){
   $('#subTitle').textContent =
     `${state.config.yards.length} Yard · ${EN_MONTH[state.config.months[0]-1]}–${EN_MONTH[state.config.months.at(-1)-1]} ${YEAR} · แผน ${fmt(state.config.dailyPlanTotal)} คัน/วัน (รวมทุก Yard)`;
   const el=$('#app');
-  el.innerHTML =
+  el.innerHTML = connectBanner() + (
     v==='dash' ? viewDash() :
     v==='entry' ? viewEntry() :
     v==='daily' ? viewDaily() :
     v==='monthly' ? viewMonthly() :
-    v==='issues' ? viewIssues() : viewSettings();
+    v==='issues' ? viewIssues() : viewSettings());
   wire();
 }
 
@@ -390,6 +394,32 @@ function seedBanner(){
   if(state.lots.length) return '';
   return `<div class="banner">ยังไม่มีข้อมูลในฐานข้อมูล — กดนำเข้าข้อมูลตั้งต้นจาก Defect list (ตัดยอด ${esc(state.config.cutoff)}) ได้เลย
     <button class="btn sm" id="seedNow">นำเข้าข้อมูลตั้งต้น</button></div>`;
+}
+function connectBanner(){
+  if(DB.mode==='rtdb') return '';
+  const r = DB.reason || {short:'ออฟไลน์', detail:'ยังไม่ได้เชื่อมต่อฐานข้อมูล', fix:'net'};
+  const steps = {
+    rules: `<b>วิธีทำให้ออนไลน์:</b> เปิด <a href="https://console.firebase.google.com/project/pdi-reportsjwd/database/pdi-reportsjwd-default-rtdb/rules" target="_blank">Realtime Database → Rules</a> วางกฎด้านล่างแล้วกด <b>Publish</b>`,
+    create: `<b>วิธีทำให้ออนไลน์:</b> เปิด <a href="https://console.firebase.google.com/project/pdi-reportsjwd/database" target="_blank">Realtime Database</a> แล้วตั้ง Rules ตามด้านล่าง`,
+    host: `<b>วิธีทำให้ออนไลน์:</b> ต้องเปิดแอปผ่านลิงก์ http(s) — ใช้ไฟล์ชุด deploy ที่แนบให้ (ทำครั้งเดียวได้ลิงก์ถาวร) หรือทดสอบเร็ว ๆ ด้วยการรันเซิร์ฟเวอร์ในเครื่อง`,
+    net: `ลองกดปุ่มเชื่อมต่อใหม่ หากยังไม่ได้ให้ตรวจอินเทอร์เน็ตและกฎ Realtime Database`,
+  };
+  const showRules = r.fix==='rules' || r.fix==='create';
+  return `<div class="banner" style="flex-direction:column; align-items:stretch; gap:8px">
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap">
+      <b style="font-size:14px">🔌 ตอนนี้ยังเป็นโหมดออฟไลน์ (เก็บในเครื่องนี้เท่านั้น ไม่ซิงก์ข้ามเครื่อง)</b>
+      <span class="spacer"></span>
+      <button class="btn sm" id="reconnectBtn">↻ ลองเชื่อมต่อใหม่</button>
+    </div>
+    <div>สาเหตุ: ${esc(r.detail)}</div>
+    <div>${steps[r.fix]||steps.net}</div>
+    ${showRules?`<pre style="margin:2px 0 0">{
+  "rules": {
+    ".read": true,
+    ".write": true
+  }
+}</pre>`:''}
+  </div>`;
 }
 
 /* ---- 1. dashboard ---- */
@@ -669,21 +699,43 @@ function viewSettings(){
       <button class="btn warn" id="wipeBtn">ล้างข้อมูลทั้งหมด</button>
     </div>
     <div class="hint">ข้อมูลตั้งต้นคือ 100 ล็อตจาก Defect list Co-inspection (ตัด Move from = MAIN YARD, เดือน ส.ค.–ก.ย. 2026) กดซ้ำได้ ระบบจะเขียนทับล็อตเดิมที่มี ID ตรงกัน</div>
-    <div class="hint">สถานะฐานข้อมูล: <b>${DB.mode==='firestore'?'Firestore (pdi-reportsjwd)':'เก็บในเครื่อง (localStorage)'}</b> — ข้อมูลที่กรอกจะซิงก์ทุกเครื่องเมื่อใช้ Firestore</div>
-    <details class="help"><summary>กฎความปลอดภัยของ Firestore ที่ต้องตั้ง (คัดลอกไปวางในหน้า Rules)</summary>
-<pre>rules_version = '2';
-service cloud.firestore {
-  match /databases/{db}/documents {
-    match /{doc=**} {
-      allow read, write: if true;   // ใช้ภายในองค์กร; ถ้าต้องการจำกัด ให้เปิด Firebase Auth แล้วเปลี่ยนเป็น request.auth != null
-    }
+    <div class="hint">สถานะฐานข้อมูล: <b>${DB.mode==='rtdb'?'ออนไลน์ • Realtime Database (pdi-reportsjwd)':'เก็บในเครื่อง (localStorage)'}</b> — ข้อมูลที่กรอกจะซิงก์ทุกเครื่องเมื่อออนไลน์</div>
+    <details class="help"><summary>กฎ (Rules) ของ Realtime Database ที่ต้องตั้ง (คัดลอกไปวางในหน้า Rules)</summary>
+<pre>{
+  "rules": {
+    ".read": true,    // ใช้ภายในองค์กร; ถ้าต้องการจำกัด ให้เปิด Firebase Auth แล้วใช้ "auth != null"
+    ".write": true
   }
 }</pre></details>
   </div>`;
 }
 
+/* ลองเชื่อมต่อ Realtime Database ใหม่ และดันข้อมูลในเครื่องขึ้นถ้าคลาวด์ว่าง */
+let reconnecting=false;
+async function reconnect(){
+  if(reconnecting) return; reconnecting=true;
+  toast('กำลังลองเชื่อมต่อ Realtime Database…', 3000);
+  const localLots=state.lots.slice(), localNotes={...state.notes}, localCfg={...state.config};
+  DB.mode='local'; DB.db=null; DB.api=null; state.ready=false;
+  await initDB();
+  reconnecting=false;
+  if(DB.mode!=='rtdb'){ setChip('err','ออฟไลน์: '+(DB.reason?DB.reason.short:'')); render(); toast('ยังเชื่อมต่อไม่ได้ — '+(DB.reason?DB.reason.short:'')); return; }
+  // เชื่อมต่อได้: ถ้าคลาวด์ยังว่างแต่มีข้อมูลในเครื่อง ให้ดันขึ้น
+  await new Promise(r=>setTimeout(r,600));
+  if(state.lots.length===0 && localLots.length){
+    if(confirm(`เชื่อมต่อออนไลน์สำเร็จ! พบข้อมูล ${localLots.length} ล็อตที่กรอกไว้ในเครื่องนี้\nต้องการอัปโหลดขึ้นฐานข้อมูลออนไลน์หรือไม่?`)){
+      await putConfig(localCfg);
+      await writeLots(localLots, false);
+      for(const [k,v] of Object.entries(localNotes)) await putNote(k,v);
+      toast('อัปโหลดข้อมูลขึ้นออนไลน์แล้ว');
+    }
+  } else toast('เชื่อมต่อออนไลน์สำเร็จ');
+  render();
+}
+
 /* ---------- events ---------- */
 function wire(){
+  const rc=$('#reconnectBtn'); if(rc) rc.onclick=reconnect;
   const ms=$('#monthSel'); if(ms) ms.onchange=e=>{ state.month=+e.target.value; render(); };
   const ys=$('#yardSel'); if(ys) ys.onchange=e=>{ state.yard=e.target.value; render(); };
 
@@ -697,7 +749,7 @@ function wire(){
       if(k==='qty'){ lot.qty=v; }
       else { lot[k] = {...(lot[k]||{})}; if(v) lot[k][d]=v; else delete lot[k][d]; }
       await putLot(lot);
-      if(DB.mode==='firestore') render();
+      if(DB.mode==='rtdb') render();
     };
     inp.onkeydown = e=>{
       const map={ArrowRight:1, ArrowLeft:-1};
@@ -718,7 +770,7 @@ function wire(){
   document.querySelectorAll('select[data-id][data-k="model"]').forEach(sel=>{
     sel.onchange = async e=>{
       const lot=state.lots.find(l=>l.id===e.target.dataset.id); if(!lot) return;
-      lot.model=e.target.value; await putLot(lot); if(DB.mode==='firestore') render();
+      lot.model=e.target.value; await putLot(lot); if(DB.mode==='rtdb') render();
     };
   });
   document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
@@ -818,7 +870,7 @@ async function addLot(lot){
   const id = `${lot.yard}__${lot.month}__${lot.eta}__${lot.model||'new'}__${Math.random().toString(36).slice(2,7)}`
              .replace(/\//g,'-');
   await putLot({id, ...lot});
-  if(DB.mode==='firestore') setTimeout(render, 250);
+  if(DB.mode==='rtdb') setTimeout(render, 250);
 }
 
 async function doSeed(){
