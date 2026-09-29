@@ -105,6 +105,7 @@ td.l,th.l{text-align:left}
 [data-theme="dark"] .grid-in.skip-in{background:#2a2440; color:#c3b1f0}
 [data-theme="dark"] .skip-c{background:#2a2440; color:#c3b1f0}
 .tot-c{background:var(--navy); color:#fff; font-weight:700}
+.tot-c.ok{background:#2e7d32} .tot-c.bad{background:#c62828}
 .neg{color:var(--red); font-weight:700} .pos{color:var(--green); font-weight:700}
 .grid-in{
   width:42px; text-align:center; border:1px solid transparent; background:var(--input);
@@ -114,6 +115,7 @@ td.l,th.l{text-align:left}
 .grid-in.zero{color:var(--muted); opacity:.45}
 .eta-cell{background:var(--input); font-weight:700}
 .eta-cell.carried{background:#fce4d6; color:#c92a2a}
+.eta-cell.cont{background:#ede7f6; color:#5e35b1}
 [data-theme="dark"] .eta-cell.carried{background:#3a2418; color:#f2a4a4}
 .wknd{background:rgba(31,56,100,.045)}
 [data-theme="dark"] .wknd{background:rgba(255,255,255,.035)}
@@ -139,6 +141,7 @@ td.l,th.l{text-align:left}
 .legend i{display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:5px; vertical-align:-1px}
 .note-in{width:100%; border:1px solid var(--line); background:var(--input); border-radius:8px; padding:6px 9px; font-family:inherit; font-size:13px; color:inherit}
 .note-in:focus{border-color:var(--blue); outline:none}
+.note-ta{resize:none; overflow:hidden; line-height:1.4; display:block}
 .row-under td{background:var(--pink)!important}
 .empty{padding:34px; text-align:center; color:var(--muted)}
 .banner{background:#fff4d6; border:1px solid #f7d98a; color:#7a5400; padding:12px 16px; border-radius:12px; margin-bottom:16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap}
@@ -420,6 +423,67 @@ function getSchedule(){ if(!state._sched) state._sched = computeSchedule(); retu
 const planScheduled = (yard,month,day) => (getSchedule().sched[yard]||{})[month*100+day] || 0;
 const lotPlan = (lotId,month,day) => (getSchedule().lot[lotId]||{})[month*100+day] || 0;
 
+// ===== แผนงานที่เหลือ (ยังไม่ได้ทำ) จัดใหม่เริ่ม "พรุ่งนี้" เป็นต้นไป · โซนละ ≤ zoneCap/วัน · เรียงตาม ETA มาก่อนได้ก่อน =====
+function computePlanFwd(){
+  const cap = Number(state.config.zoneCap)||120;
+  const lot = {};   // lotId -> {month*100+day: qty}
+  const m0=state.config.months[0], mN=state.config.months.at(-1);
+  const endOrd = ORD(YEAR, mN, daysIn(mN));
+  const now = new Date();
+  const floor = ORD(now.getFullYear(), now.getMonth()+1, now.getDate()) + 1;   // เริ่มพรุ่งนี้
+  const curMonth = now.getFullYear()===YEAR ? now.getMonth()+1 : m0;           // เดือนปัจจุบัน
+  for(const zone of getZones()){
+    const items = [];   // {id, y, etaOrd, avail, rem, idx}
+    state.lots.forEach((l,idx)=>{
+      if(!zone.includes(l.yard)) return;
+      if(Number(l.month) < curMonth) return;   // ล็อตเดือนก่อนที่ค้าง = นับผ่านล็อต 'ยกมา' ของเดือนปัจจุบันแล้ว (กันนับซ้ำ)
+      const qty = Number(l.qty)|| sumMap(l.plan); if(!qty) return;
+      const rem = qty - (sumMap(l.actual)+sumMap(l.skip)); if(rem<=0) return;   // เหลือเฉพาะที่ยังไม่ทำ
+      const [yy,mm,dd] = l.eta.split('-').map(Number);
+      const etaOrd = ORD(yy,mm,dd);
+      items.push({id:l.id, etaOrd, avail: Math.max(etaOrd+1, floor), rem, idx});
+    });
+    if(!items.length) continue;
+    items.sort((a,b)=> a.avail-b.avail || a.etaOrd-b.etaOrd || a.idx-b.idx);   // ETA มาก่อนได้ก่อน
+    let o = Math.min(...items.map(it=>it.avail));
+    const hasLeft = ()=> items.some(it=>it.rem>0);
+    const arriving = oo => items.some(it=>it.avail>=oo && it.rem>0);
+    for(let g=0; g<5000 && (o<=endOrd || hasLeft()); o++, g++){
+      let capLeft = cap;
+      for(const it of items){
+        if(capLeft<=0) break;
+        if(it.avail>o || it.rem<=0) continue;
+        const take=Math.min(it.rem,capLeft); it.rem-=take; capLeft-=take;
+        const [gy,gm,gd]=ordMD(o);
+        if(gy===YEAR && gm>=m0 && gm<=mN){ const key=gm*100+gd; (lot[it.id]=lot[it.id]||{})[key]=(lot[it.id][key]||0)+take; }
+      }
+      if(o>endOrd && !hasLeft() && !arriving(o+1)) break;
+    }
+  }
+  return lot;
+}
+function getPlanFwd(){ if(!state._pfwd) state._pfwd = computePlanFwd(); return state._pfwd; }
+
+// Plan PDI ของล็อต: ส่วนที่ทำแล้ว (Actual+Skip) โชว์ตรงวันจริง (เฉพาะเดือนของล็อต) · ส่วนที่ยังไม่ทำ จัดใหม่เริ่มพรุ่งนี้ (≤120/วัน/โซน, เรียง ETA) ข้ามเดือนได้
+function lotPlanArr(l, month, n){
+  const arr = Array(n+1).fill(0);
+  if(Number(l.month)===Number(month)){   // ทำจริงเป็นข้อมูลของเดือนล็อตนั้น
+    const act=l.actual||{}, skp=l.skip||{};
+    for(let d=1; d<=n; d++) arr[d] += (Number(act[d])||0)+(Number(skp[d])||0);
+  }
+  const fwd = getPlanFwd()[l.id]||{};
+  for(let d=1; d<=n; d++) arr[d] += fwd[month*100+d]||0;                        // แผนที่เหลือ (เดือนไหนก็ได้)
+  return arr;
+}
+// ล็อตที่ต้องโชว์ในเดือนนั้น: ล็อตของเดือนนั้น + ล็อตเดือนก่อนที่มีแผนต่อเนื่อง (ยังทำไม่เสร็จ) ไหลมาถึงเดือนนี้
+function lotsForMonth(yard, month){
+  const fwd = getPlanFwd();
+  return state.lots.filter(l=> l.yard===yard && (
+    Number(l.month)===Number(month) ||
+    Object.keys(fwd[l.id]||{}).some(k=> Math.floor(Number(k)/100)===Number(month))
+  ));
+}
+
 // ===== คิวรถเข้า(ETA): จำกัดโซนละ ≤ zoneCap/วัน · ล้นไปวันถัดไป · เข้าคิวตามลำดับ ETA (มาก่อนได้ก่อน) =====
 //  แยกยอดกลับไปที่แต่ละล็อต เพื่อให้แถวรถเข้า(ETA) ของล็อตนั้นโชว์การแบ่งวัน เช่น 221 → 120 + 101
 function computeArrLots(filter){
@@ -501,7 +565,7 @@ const monthTotals = (yard,month) => {
 /* ---------- views ---------- */
 function render(){
   if(!state.ready) return;
-  state._sched = state._arr = state._arrN = null;   // คำนวณตาราง/คิวรถเข้าใหม่ทุกครั้งที่ข้อมูลเปลี่ยน
+  state._sched = state._arr = state._arrN = state._pfwd = null;   // คำนวณตาราง/คิวรถเข้า/แผนที่เหลือใหม่ทุกครั้งที่ข้อมูลเปลี่ยน
   const v=state.view;
   $('#subTitle').textContent =
     `${state.config.yards.length} Yard · ${getZones().length} โซน · ${EN_MONTH[state.config.months[0]-1]}–${EN_MONTH[state.config.months.at(-1)-1]} ${YEAR} · แผน ${fmt(state.config.zoneCap)} คัน/วัน/โซน`;
@@ -631,12 +695,13 @@ function openUnits(yard){
 /* ---- 2. entry grid ---- */
 function viewEntry(){
   const m=state.month, n=daysIn(m), yard=state.yard;
-  const list = lotsOf(yard,m);
+  const list = lotsForMonth(yard,m);   // รวมล็อตที่แผนต่อเนื่องข้ามเดือนมาถึงเดือนนี้
   const groups = {};
-  list.forEach(l=>{ const k=(l.carried?'C|':'N|')+l.eta; (groups[k] = groups[k]||[]).push(l); });
+  list.forEach(l=>{ const cont = Number(l.month)!==Number(m); const k=(cont?'X|':(l.carried?'C|':'N|'))+l.eta+'|'+l.month; (groups[k] = groups[k]||[]).push(l); });
+  const ordP={C:0,N:1,X:2};
   const keys = Object.keys(groups).sort((a,b)=>{
     const [ca,ea]=a.split('|'), [cb,eb]=b.split('|');
-    if(ca!==cb) return ca==='C'?-1:1;
+    if(ca!==cb) return ordP[ca]-ordP[cb];
     return ea.localeCompare(eb);
   });
   const models = state.config.models[yard] || [];
@@ -648,29 +713,41 @@ function viewEntry(){
   }
   keys.forEach(k=>{
     const rows = groups[k].sort((a,b)=>(a.model||'').localeCompare(b.model||''));
-    const carried = k.startsWith('C|'), eta = k.slice(2);
+    const [pfx, eta] = k.split('|');
+    const carried = pfx==='C', cont = pfx==='X';
     const units = rows.reduce((s,l)=>s+(Number(l.qty)||0),0);
     const remark = rows.map(l=>l.remark).find(Boolean);
     rows.forEach((l,i)=>{
+      const own = Number(l.month)===Number(m);
+      const pa = lotPlanArr(l, m, n);   // Plan จัดให้ตรงวันที่ทำจริง + แผนที่เหลือ
       const planCells = Array.from({length:n},(_,j)=>{
-        const d=j+1, v=lotPlan(l.id,m,d);   // วันเริ่มทำ PDI = รถเข้า +1 วัน (แบ่ง ≤120/วัน/โซน)
+        const d=j+1, v=pa[d];
         return `<td class="plan-c num ${isWknd(m,d)?'wknd':''}" style="color:#1f4e79">${v?fmt(v):'<span class="zero">·</span>'}</td>`;
       }).join('');
+      const lqty = Number(l.qty)||sumMap(l.plan);
+      const ldone = sumMap(l.actual)+sumMap(l.skip);
+      const planTot = pa.slice(1).reduce((x,y)=>x+y,0);
+      const totCls = lqty>0 ? (ldone>=lqty ? 'ok' : 'bad') : '';   // ครบ=เขียว ไม่ครบ=แดง
       const actCells = Array.from({length:n},(_,j)=>{
         const d=j+1, v=l.actual?.[d]||'';
-        return `<td class="${isWknd(m,d)?'wknd':''}"><input class="grid-in ${v?'':'zero'}" data-id="${l.id}" data-k="actual" data-d="${d}" value="${v}" inputmode="numeric"></td>`;
+        return own
+          ? `<td class="${isWknd(m,d)?'wknd':''}"><input class="grid-in ${v?'':'zero'}" data-id="${l.id}" data-k="actual" data-d="${d}" value="${v}" inputmode="numeric"></td>`
+          : `<td class="act-c num ${isWknd(m,d)?'wknd':''}"><span class="zero">·</span></td>`;
       }).join('');
       const skipCells = Array.from({length:n},(_,j)=>{
         const d=j+1, v=l.skip?.[d]||'';
-        return `<td class="${isWknd(m,d)?'wknd':''}"><input class="grid-in skip-in ${v?'':'zero'}" data-id="${l.id}" data-k="skip" data-d="${d}" value="${v}" inputmode="numeric"></td>`;
+        return own
+          ? `<td class="${isWknd(m,d)?'wknd':''}"><input class="grid-in skip-in ${v?'':'zero'}" data-id="${l.id}" data-k="skip" data-d="${d}" value="${v}" inputmode="numeric"></td>`
+          : `<td class="skip-c num ${isWknd(m,d)?'wknd':''}"><span class="zero">·</span></td>`;
       }).join('');
       const first = i===0;
       body += `<tr class="${first?'grp-line':''}">
-        ${first?`<td class="eta-cell ${carried?'carried':''} l" rowspan="${rows.length*3}">
-            <div><b>${carried?'ยกมา ':''}${etaLabel(eta)}</b></div>
+        ${first?`<td class="eta-cell ${carried?'carried':''} ${cont?'cont':''} l" rowspan="${rows.length*3}">
+            <div><b>${carried?'ยกมา ':''}${cont?'⏭ แผนต่อ ':''}${etaLabel(eta)}</b></div>
             <div class="mini num">${fmt(units)} units</div>
+            ${cont?'<div class="mini" style="color:#5e35b1">งานค้างเดือนก่อน</div>':''}
             ${remark?`<div class="mini" style="white-space:normal;color:var(--muted);margin-top:3px" title="${esc(remark)}">📋 ${esc(remark)}</div>`:''}
-            <button class="btn sm ghost" data-add-model="${esc(k)}" style="margin-top:6px">+ รุ่น</button></td>`:''}
+            ${own?`<button class="btn sm ghost" data-add-model="${esc(k)}" style="margin-top:6px">+ รุ่น</button>`:''}</td>`:''}
         <td class="l" rowspan="3">
           <div class="model-row">
             <select data-id="${l.id}" data-k="model">
@@ -683,26 +760,29 @@ function viewEntry(){
         <td rowspan="3"><input class="grid-in" data-id="${l.id}" data-k="qty" value="${l.qty||''}" inputmode="numeric"></td>
         <td class="plan-c" style="font-size:11px">Plan PDI</td>
         ${planCells}
-        <td class="tot-c num">${fmt(Number(l.qty)||sumMap(l.plan))}</td>
+        <td class="tot-c num ${totCls}">${fmt(planTot)}</td>
       </tr>
       <tr>
         <td class="act-c" style="font-size:11.5px">Actual PDI</td>
         ${actCells}
-        <td class="tot-c num">${fmt(sumMap(l.actual))}</td>
+        <td class="tot-c num ${totCls}">${own?fmt(ldone):'-'}</td>
       </tr>
       <tr>
         <td class="skip-c" style="font-size:11.5px">Skip PDI</td>
         ${skipCells}
-        <td class="tot-c num">${fmt(sumMap(l.skip))}</td>
+        <td class="tot-c num">${own?fmt(sumMap(l.skip)):'-'}</td>
       </tr>`;
     });
   });
 
   const a=dayAgg(yard,m);
+  // Plan รวมของ yard = ผลรวม Plan ที่จัดตรงวันจริงของแต่ละล็อต
+  const planAligned = Array(n+1).fill(0);
+  lotsForMonth(yard,m).forEach(l=>{ const pa=lotPlanArr(l,m,n); for(let d=1;d<=n;d++) planAligned[d]+=pa[d]; });
   const totRow = (label, arr, cls) => `<tr><td class="l ${cls}" colspan="4"><b>${label}</b></td>
     ${Array.from({length:n},(_,i)=>`<td class="${cls} num ${isWknd(m,i+1)?'wknd':''}">${fmt(Math.round(arr[i+1]))}</td>`).join('')}
     <td class="tot-c num">${fmt(Math.round(arr.slice(1).reduce((x,y)=>x+y,0)))}</td></tr>`;
-  const diff = Array(n+1).fill(0).map((_,d)=> d===0?0:a.actual[d]-a.plan[d]);
+  const diff = Array(n+1).fill(0).map((_,d)=> d===0?0:a.actual[d]-planAligned[d]);
   const diffRow = `<tr><td class="l" colspan="4" style="background:#fff2cc"><b>Diff.</b></td>
     ${Array.from({length:n},(_,i)=>{const v=Math.round(diff[i+1]);
       return `<td class="num ${v<0?'neg':'pos'} ${isWknd(m,i+1)?'wknd':''}" style="background:#fff2cc">${fmtSigned(v)}</td>`;}).join('')}
@@ -725,7 +805,7 @@ function viewEntry(){
       </tr></thead>
       <tbody>${body}
         ${totRow('รถเข้า (ETA)', a.arrivals, '')}
-        ${totRow('Plan PDI (ตารางทำ)', a.plan, 'plan-c')}
+        ${totRow('Plan PDI (ตารางทำ)', planAligned, 'plan-c')}
         ${totRow('Actual PDI', a.actual.map((v,i)=>v-a.skip[i]), 'act-c')}
         ${totRow('Skip PDI', a.skip, 'skip-c')}
         ${diffRow}
@@ -842,15 +922,14 @@ function viewIssues(){
         <td class="plan-c num">${fmt(Math.round(plan))}</td><td class="act-c num">${fmt(act)}</td>
         <td class="num ${diff<0?'neg':'pos'}">${fmtSigned(Math.round(diff))}</td>
         <td class="l">${diff<0?`<b class="neg">ต่ำกว่าเป้า ${fmt(Math.round(-diff))} คัน</b>`:'<span class="pos">ตามเป้า</span>'}</td>
-        <td style="min-width:320px"><input class="note-in" data-note="${esc(key)}" data-f="text" value="${esc(note.text||'')}" placeholder="สาเหตุที่ไม่ได้ตามเป้า…"></td>
-        <td style="min-width:120px"><input class="note-in" data-note="${esc(key)}" data-f="by" value="${esc(note.by||'')}" placeholder="ผู้บันทึก"></td></tr>`;
+        <td class="l" style="width:100%"><textarea class="note-in note-ta" data-note="${esc(key)}" data-f="text" rows="1" placeholder="สาเหตุที่ไม่ได้ตามเป้า…" style="min-width:640px">${esc(note.text||'')}</textarea></td></tr>`;
     }
   });
-  if(!rows) rows=`<tr><td colspan="8" class="empty">ยังไม่มีวันที่มีข้อมูลในเดือนนี้</td></tr>`;
+  if(!rows) rows=`<tr><td colspan="7" class="empty">ยังไม่มีวันที่มีข้อมูลในเดือนนี้</td></tr>`;
   return `<div class="bar">${monthPicker()}<span class="mini">แถวสีชมพู = วันที่ทำได้ต่ำกว่าแผน</span></div>
   <div class="card"><h2>บันทึกปัญหารายวัน <span class="tag">${TH_MONTH[m-1]} ${YEAR}</span></h2>
-    <div class="scroll" style="max-height:74vh"><table><thead><tr><th class="l">Yard</th><th>วันที่</th><th>Plan</th><th>Actual</th><th>Diff.</th>
-      <th class="l">สถานะ</th><th class="l">ปัญหา / สาเหตุ</th><th class="l">ผู้บันทึก</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    <div class="scroll" style="max-height:74vh"><table style="width:100%"><thead><tr><th class="l">Yard</th><th>วันที่</th><th>Plan</th><th>Actual</th><th>Diff.</th>
+      <th class="l">สถานะ</th><th class="l" style="width:100%">ปัญหา / สาเหตุ</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 
 /* ---- 6. settings ---- */
@@ -1015,7 +1094,9 @@ function wire(){
   };
 
   // notes
+  const grow = ta => { ta.style.height='auto'; ta.style.height=(ta.scrollHeight+2)+'px'; };
   document.querySelectorAll('.note-in[data-note]').forEach(inp=>{
+    if(inp.tagName==='TEXTAREA'){ grow(inp); inp.oninput=()=>grow(inp); }
     inp.onchange = e=>{
       const key=e.target.dataset.note, f=e.target.dataset.f;
       const [yard,month,day]=key.split('__');
@@ -1310,9 +1391,10 @@ const XL = {
   NAVY:'FF1F3864', BAND:'FF2E5C8A', HDR:'FFDCE6F1',
   PLAN_H:'FF2E75B6', PLAN_C:'FFE4EEF8', PLAN_T:'FF1F4E79',
   ACT_H:'FFED7D31', ACT_C:'FFFCEBDD', ACT_T:'FFA9500F',
+  SKIP_H:'FF7E57C2', SKIP_C:'FFEDE7F6', SKIP_T:'FF5E35B1',
   BANDF:['FFA9D08E','FF4EA8DE','FFBFBFBF'], BANDT:['FF375623','FF1F4E79','FF404040'],
   LAV:'FFE4DFEC', PEACH:'FFFCE4D6', T_BLUE:'FFDDEBF7', T_GREEN:'FFE2EFDA', T_YELL:'FFFFF2CC',
-  NA:'FFF2F2F2', PINK:'FFFFD6D6', INPUT:'FFFFF7DC',
+  NA:'FFF2F2F2', PINK:'FFFFD6D6', INPUT:'FFFFF7DC', RO:'FFEDEDF4', OKG:'FF2E7D32', BADR:'FFC62828', CONT:'FFEDE7F6',
   WHITE:'FFFFFFFF', BLACK:'FF000000', CYAN:'FF00B0F0', RED:'FFFF0000', GREY:'FF404040', DKRED:'FFC00000', BLUE_IN:'FF0000FF',
   NUMF:'#,##0;[Red]-#,##0;', TOTF:'#,##0;[Red]-#,##0;"-"', FMT:'#,##0;[Red]\\(#,##0\\)', PCT:'0.0%;;\\-',
 };
@@ -1378,6 +1460,26 @@ function lotGroups(yard, month){
     label:(k[0]==='C'?'ยกมา ':'')+etaLabel(k.slice(2)),
     models:g[k].sort((a,b)=>(a.model||'').localeCompare(b.model||'')) }));
 }
+// เหมือนหน้าเว็บ viewEntry: รวมล็อตเดือนนี้ + ล็อตเดือนก่อนที่แผนต่อเนื่อง(ยังไม่เสร็จ)ไหลมาถึง (⏭ แผนต่อ)
+function lotGroupsX(yard, month){
+  const list = lotsForMonth(yard, month);
+  const g = {};
+  list.forEach(l=>{ const cont=Number(l.month)!==Number(month);
+    const k=(cont?'X|':(l.carried?'C|':'N|'))+l.eta+'|'+l.month; (g[k]=g[k]||[]).push(l); });
+  const ordP={C:0,N:1,X:2};
+  const keys = Object.keys(g).sort((a,b)=>{
+    const [ca,ea]=a.split('|'), [cb,eb]=b.split('|');
+    if(ca!==cb) return ordP[ca]-ordP[cb];
+    return ea.localeCompare(eb);
+  });
+  return keys.map(k=>{
+    const [pfx,eta]=k.split('|'); const carried=pfx==='C', cont=pfx==='X';
+    const models=g[k].sort((a,b)=>(a.model||'').localeCompare(b.model||''));
+    return { carried, cont, eta,
+      units: models.reduce((s,l)=>s+(Number(l.qty)||0),0),
+      label:(carried?'ยกมา ':'')+(cont?'⏭ แผนต่อ ':'')+etaLabel(eta), models };
+  });
+}
 
 async function exportExcel(){
   toast('กำลังสร้างไฟล์ Excel…', 4000);
@@ -1416,8 +1518,8 @@ async function exportExcel(){
     let r=5;
     for(const mnum of MONTHS){
       const mi=mnum-1, ndays=daysIn(mnum);
-      const groups = lotGroups(yard,mnum);
-      for(let i=0;i<BLANK_GROUPS;i++) groups.push({label:null,carried:false,models:[{model:null,qty:null,plan:{},actual:{}}]});
+      const groups = lotGroupsX(yard,mnum);
+      for(let i=0;i<BLANK_GROUPS;i++) groups.push({label:null,carried:false,cont:false,models:[{model:null,qty:null,plan:{},actual:{},skip:{}}]});
 
       const h1=r, h2=r+1;
       [[1,'ETA'],[2,'Units'],[3,'Model'],[4,'Sub Model'],[5,"Q'ty"],[6,'Plan&Actual']].forEach(([cc,text])=>{
@@ -1437,55 +1539,79 @@ async function exportExcel(){
       const first=r;
       for(const grp of groups){
         const g_first=r;
+        const cont = !!grp.cont;   // ⏭ ล็อตแผนต่อจากเดือนก่อน (Actual/Skip อ่านอย่างเดียว)
         grp.models.forEach((mo,k)=>{
-          const rp=r, ra=r+1, band=XL.BANDF[k%3], btxt=XL.BANDT[k%3];
-          const mc = xset(ws,rp,3,mo.model,{fill:XP(band),font:XF(9,true,XL.BLACK),align:XCEN,border:B(S_blk,S_blk,S_blk,S_dot)});
-          if(models.length) mc.dataValidation={type:'list',allowBlank:true,formulae:[`"${models.join(',')}"`]};
-          xset(ws,ra,3,'(PDI as normal)',{fill:XP(band),font:XF(7,false,btxt),align:XCEN,border:B(S_blk,S_blk,S_dot,S_blk)});
-          xpaint(ws,rp,4,ra,4,{fill:XP(band),border:BOXK,font:XF(9,true,XL.BLACK),align:XCEN}); ws.mergeCells(rp,4,ra,4);
-          xpaint(ws,rp,5,ra,5,{fill:XP(XL.INPUT),border:BOXK,font:XF(9,true,XL.BLACK),align:XCEN,fmt:XL.TOTF});
-          xset(ws,rp,5, mo.qty??null); ws.mergeCells(rp,5,ra,5);
-          xset(ws,rp,6,'รถเข้า(ETA)',{font:XF(8,true,XL.NAVY),fill:XP(XL.WHITE),align:XCEN,border:B(S_blk,S_blk,S_blk,S_dot)});
-          xset(ws,ra,6,'Actual PDI',{font:XF(8,true,XL.CYAN),fill:XP(XL.WHITE),align:XCEN,border:B(S_blk,S_blk,S_dot,S_blk)});
+          const rp=r, ra=r+1, rs=r+2, band=XL.BANDF[k%3];
+          const own = !cont;                                   // own = เดือนนี้ (กรอกได้) · cont = อ่านอย่างเดียว
+          const pa = lotPlanArr(mo, mnum, ndays);              // Plan จัดตรงวันทำจริง + แผนที่เหลือ (เหมือนเว็บ)
+          const lqty = Number(mo.qty)||sumMap(mo.plan);
+          const ldone = sumMap(mo.actual)+sumMap(mo.skip);
+          const totFill = lqty>0 ? (ldone>=lqty?XL.OKG:XL.BADR) : XL.NAVY;   // ครบ=เขียว ไม่ครบ=แดง
+          // Model (col3) รวม 3 แถว + dropdown
+          const mc = xset(ws,rp,3,mo.model,{fill:XP(band),font:XF(9,true,XL.BLACK),align:XCEN,border:BOXK});
+          if(models.length && own) mc.dataValidation={type:'list',allowBlank:true,formulae:[`"${models.join(',')}"`]};
+          xpaint(ws,rp,3,rs,3,{fill:XP(band),border:BOXK}); ws.mergeCells(rp,3,rs,3);
+          xpaint(ws,rp,4,rs,4,{fill:XP(band),border:BOXK,font:XF(9,true,XL.BLACK),align:XCEN}); ws.mergeCells(rp,4,rs,4);
+          xpaint(ws,rp,5,rs,5,{fill:XP(cont?XL.CONT:XL.INPUT),border:BOXK,font:XF(9,true,XL.BLACK),align:XCEN,fmt:XL.TOTF});
+          xset(ws,rp,5, cont?null:(mo.qty??null)); ws.mergeCells(rp,5,rs,5);   // ล็อตแผนต่อ ไม่ใส่ Q'ty กันนับซ้ำกับเดือนต้นทาง
+          // 3 แถวเหมือนเว็บ: Plan PDI (คำนวณ aligned+forward) / Actual PDI (กรอก) / Skip PDI (กรอก)
+          xset(ws,rp,6,'Plan PDI',{font:XF(8,true,XL.PLAN_T),fill:XP(XL.PLAN_C),align:XCEN,border:BOX});
+          xset(ws,ra,6,'Actual PDI',{font:XF(8,true,XL.ACT_T),fill:XP(XL.ACT_C),align:XCEN,border:BOX});
+          xset(ws,rs,6,'Skip PDI',{font:XF(8,true,XL.SKIP_T),fill:XP(XL.SKIP_C),align:XCEN,border:BOX});
           for(let day=1;day<=31;day++){
             const live=day<=ndays, c=ECOL0+day-1;
-            const pv = live ? (lotArr(mo.id, mnum, day)||null) : null;   // คิวรถเข้าที่แบ่งแล้ว ≤120/วัน
-            xset(ws,rp,c,pv,{font:XF(9,true,XL.BLACK),align:XCEN,fmt:XL.NUMF,fill:XP(live?XL.INPUT:XL.NA),border:B(S_blk,S_blk,S_blk,S_dot)});
-            const av = live ? ((Number(mo.actual?.[day])||0)+(Number(mo.skip?.[day])||0)||null) : null;   // Actual = PDI ปกติ + Skip
-            xset(ws,ra,c,av,{font:XF(9,true,XL.CYAN),align:XCEN,fmt:XL.NUMF,fill:XP(live?XL.INPUT:XL.NA),border:B(S_blk,S_blk,S_dot,S_blk)});
+            const pl = live ? (pa[day]||null) : null;                              // Plan PDI = aligned + แผนต่อ
+            xset(ws,rp,c,pl,{font:XF(9,true,XL.PLAN_T),align:XCEN,fmt:XL.NUMF,fill:XP(live?XL.PLAN_C:XL.NA),border:BOX});
+            const av = (live&&own) ? (Number(mo.actual?.[day])||null) : null;      // Actual PDI = PDI ปกติ (กรอกเฉพาะเดือนตัวเอง)
+            xset(ws,ra,c,av,{font:XF(9,true,XL.ACT_T),align:XCEN,fmt:XL.NUMF,fill:XP(!live?XL.NA:(own?XL.INPUT:XL.RO)),border:BOX});
+            const sv = (live&&own) ? (Number(mo.skip?.[day])||null) : null;        // Skip PDI (กรอกเฉพาะเดือนตัวเอง)
+            xset(ws,rs,c,sv,{font:XF(9,true,XL.SKIP_T),align:XCEN,fmt:XL.NUMF,fill:XP(!live?XL.NA:(own?XL.SKIP_C:XL.RO)),border:BOX});
           }
-          [[rp,XL.BLACK],[ra,XL.CYAN]].forEach(([rr,txt])=>
-            xset(ws,rr,ETOT,`=SUM(${colL(ECOL0)}${rr}:${colL(ECOLN)}${rr})`,{font:XF(9,true,txt),fill:XP(XL.WHITE),align:XCEN,fmt:XL.TOTF,border:BOXK}));
-          ws.getRow(rp).height=15; ws.getRow(ra).height=15;
-          r+=2;
+          // รวมรายแถว: Plan = ผลรวมช่อง Plan · Actual = (Actual+Skip)=ทำจริงทั้งหมด · Skip = ผลรวม Skip
+          xset(ws,rp,ETOT,`=SUM(${colL(ECOL0)}${rp}:${colL(ECOLN)}${rp})`,{font:XF(9,true,XL.WHITE),fill:XP(totFill),align:XCEN,fmt:XL.TOTF,border:BOXK});
+          xset(ws,ra,ETOT, own?`=SUM(${colL(ECOL0)}${ra}:${colL(ECOLN)}${ra})+SUM(${colL(ECOL0)}${rs}:${colL(ECOLN)}${rs})`:'-',
+            {font:XF(9,true,XL.WHITE),fill:XP(totFill),align:XCEN,fmt:XL.TOTF,border:BOXK});
+          xset(ws,rs,ETOT, own?`=SUM(${colL(ECOL0)}${rs}:${colL(ECOLN)}${rs})`:'-',
+            {font:XF(9,true,XL.WHITE),fill:XP(XL.NAVY),align:XCEN,fmt:XL.TOTF,border:BOXK});
+          ws.getRow(rp).height=15; ws.getRow(ra).height=15; ws.getRow(rs).height=15;
+          r+=3;
         });
-        const g_last=r-1, bg=grp.carried?XL.PEACH:XL.INPUT, fg=grp.carried?XL.DKRED:XL.BLACK;
+        const g_last=r-1;
+        const bg=grp.carried?XL.PEACH:(cont?XL.CONT:XL.INPUT), fg=grp.carried?XL.DKRED:(cont?XL.SKIP_T:XL.BLACK);
         xpaint(ws,g_first,1,g_last,2,{fill:XP(bg),border:BOXK,font:XF(9,true,fg),align:XCENW});
         xset(ws,g_first,1,grp.label); ws.mergeCells(g_first,1,g_last,1);
-        xset(ws,g_first,2,`=IF(SUM(E${g_first}:E${g_last})=0,"",SUM(E${g_first}:E${g_last})&" units")`);
+        xset(ws,g_first,2, cont?(grp.units?grp.units+' units':null)
+          :`=IF(SUM(E${g_first}:E${g_last})=0,"",SUM(E${g_first}:E${g_last})&" units")`);
         ws.mergeCells(g_first,2,g_last,2);
       }
       const last=r-1;
 
-      /* Grand total */
-      const gp=r, ga=r+1, gd=r+2;
-      xpaint(ws,gp,1,gd,5,{fill:XP(XL.NAVY),border:BOXT,font:XF(9,true,XL.WHITE),align:XCEN});
-      xset(ws,gp,1,'Grand total'); ws.mergeCells(gp,1,gd,4);
-      xset(ws,gp,5,`=SUM(E${first}:E${last})`); xpaint(ws,gp,5,gd,5,{fmt:XL.TOTF}); ws.mergeCells(gp,5,gd,5);
-      const gtf=(rr,L,isTotal)=>{
-        if(rr===gd) return `=${L}${ga}-${L}${gp}`;
-        if(rr===gp) return isTotal ? `=SUM(${colL(ECOL0)}${gp}:${colL(ECOLN)}${gp})` : null;
-        return `=SUMIF($F$${first}:$F$${last},"Actual PDI",${L}${first}:${L}${last})`;
-      };
-      [[gp,'Plan PDI',XL.PLAN_H,XL.WHITE],[ga,'Actual PDI',XL.ACT_H,XL.WHITE],[gd,'Diff.',XL.T_YELL,XL.DKRED]].forEach(([rr,text,bg,fg])=>{
+      /* Grand total — เหมือนเว็บ: รถเข้า(ETA) · Plan PDI · Actual PDI · Skip PDI · Diff */
+      const g_arr=r, gp=r+1, ga=r+2, gs=r+3, gd=r+4;
+      xpaint(ws,g_arr,1,gd,5,{fill:XP(XL.NAVY),border:BOXT,font:XF(9,true,XL.WHITE),align:XCEN});
+      xset(ws,g_arr,1,'Grand total'); ws.mergeCells(g_arr,1,gd,4);
+      xset(ws,g_arr,5,`=SUM(E${first}:E${last})`); xpaint(ws,g_arr,5,gd,5,{fmt:XL.TOTF}); ws.mergeCells(g_arr,5,gd,5);
+      const SUMIF=(lbl,L)=>`=SUMIF($F$${first}:$F$${last},"${lbl}",${L}${first}:${L}${last})`;
+      [[g_arr,'รถเข้า(ETA)',XL.NAVY,XL.WHITE],[gp,'Plan PDI',XL.PLAN_H,XL.WHITE],
+       [ga,'Actual PDI',XL.ACT_H,XL.WHITE],[gs,'Skip PDI',XL.SKIP_H,XL.WHITE],
+       [gd,'Diff.',XL.T_YELL,XL.DKRED]].forEach(([rr,text,bg,fg])=>{
         xset(ws,rr,6,text,{font:XF(8,true,fg),fill:XP(bg),align:XCEN,border:BOXT});
         for(let day=1;day<=31;day++){
-          const c=ECOL0+day-1;
-          // Plan PDI = ตารางที่คำนวณ (ใส่เป็นตัวเลข), Actual/Diff = สูตร
-          const val = day>ndays ? null : (rr===gp ? (planScheduled(yard,mnum,day)||null) : gtf(rr,colL(c),false));
+          const c=ECOL0+day-1, L=colL(c); let val=null;
+          if(day<=ndays){
+            if(rr===g_arr) val = arrCapped(yard,mnum,day)||null;
+            else if(rr===gp) val = SUMIF('Plan PDI',L);      // = ผลรวมช่อง Plan aligned/แผนต่อ ของทุกล็อต (เหมือนเว็บ)
+            else if(rr===ga) val = SUMIF('Actual PDI',L);
+            else if(rr===gs) val = SUMIF('Skip PDI',L);
+            else val = `=${L}${ga}+${L}${gs}-${L}${gp}`;   // Diff = (Actual+Skip) − Plan
+          }
           xset(ws,rr,c, val, {font:XF(9,true,fg),fill:XP(bg),align:XCEN,fmt:XL.NUMF,border:BOXT});
         }
-        xset(ws,rr,ETOT,gtf(rr,TOTL,true),{font:XF(9,true,XL.WHITE),fill:XP(XL.NAVY),align:XCEN,fmt:XL.TOTF,border:BOXT});
+        // รวมของแต่ละแถว Grand total = ผลรวมช่องรายวันของแถวตัวเอง (ตรงกับหน้าเว็บ · ไม่พึ่งช่องรวมรายล็อต)
+        let tot;
+        if(rr===gd) tot=`=${TOTL}${ga}+${TOTL}${gs}-${TOTL}${gp}`;   // Diff = (Actual+Skip) − Plan
+        else tot=`=SUM(${colL(ECOL0)}${rr}:${colL(ECOLN)}${rr})`;
+        xset(ws,rr,ETOT,tot,{font:XF(9,true,XL.WHITE),fill:XP(XL.NAVY),align:XCEN,fmt:XL.TOTF,border:BOXT});
       });
       r=gd+2;
 
@@ -1495,7 +1621,7 @@ async function exportExcel(){
       r+=1;
       const hr=r;
       [[1,1,'วันที่',XL.HDR],[2,3,'Plan',XL.PLAN_H],[4,5,'Actual',XL.ACT_H],[6,7,'Diff.',XL.HDR],[8,10,'สถานะ',XL.HDR],
-       [11,27,'ปัญหา / สาเหตุที่ไม่ได้ตามเป้า',XL.T_YELL],[28,ETOT,'ผู้บันทึก',XL.T_YELL]].forEach(([c1,c2,text,bg])=>{
+       [11,ETOT,'ปัญหา / สาเหตุที่ไม่ได้ตามเป้า',XL.T_YELL]].forEach(([c1,c2,text,bg])=>{
         const fg=(bg===XL.PLAN_H||bg===XL.ACT_H)?XL.WHITE:XL.NAVY;
         xpaint(ws,hr,c1,hr,c2,{fill:XP(bg),border:BOXH,font:XF(9,true,fg),align:XCENW});
         xset(ws,hr,c1,text); if(c2>c1) ws.mergeCells(hr,c1,hr,c2);
@@ -1505,21 +1631,22 @@ async function exportExcel(){
       for(let day=1;day<=ndays;day++){
         const L=colL(ECOL0+day-1);
         xset(ws,r,1,day,{font:XF(9,true,XL.NAVY),fill:XP(XL.WHITE),align:XCEN,border:BOX});
-        [[2,3,`=${L}${gp}`,XL.PLAN_T,XL.PLAN_C,XL.TOTF],[4,5,`=${L}${ga}`,XL.ACT_T,XL.ACT_C,XL.TOTF],
+        [[2,3,`=${L}${gp}`,XL.PLAN_T,XL.PLAN_C,XL.TOTF],[4,5,`=${L}${ga}+${L}${gs}`,XL.ACT_T,XL.ACT_C,XL.TOTF],
          [6,7,`=D${r}-B${r}`,XL.DKRED,XL.WHITE,XL.TOTF],
          [8,10,`=IF(B${r}=0,"-",IF(D${r}>=B${r},"ตามเป้า","ต่ำกว่าเป้า "&B${r}-D${r}&" คัน"))`,XL.NAVY,XL.WHITE,'General']].forEach(([c1,c2,f,fg,bg,fmt])=>{
           xpaint(ws,r,c1,r,c2,{fill:XP(bg),border:BOX,font:XF(9,true,fg),align:XCEN,fmt});
           xset(ws,r,c1,f); ws.mergeCells(r,c1,r,c2);
         });
         const key=`${yard}__${mnum}__${day}`, note=state.notes[key]||{};
-        [[11,27,note.text||null],[28,ETOT,note.by||null]].forEach(([c1,c2,v])=>{
-          xpaint(ws,r,c1,r,c2,{fill:XP(XL.INPUT),border:BOX,font:XF(9,false,XL.BLUE_IN),align:XLEFTW});
-          xset(ws,r,c1,v); ws.mergeCells(r,c1,r,c2);
-        });
-        ws.getRow(r).height=16; r+=1;
+        const txt=note.text||null;
+        xpaint(ws,r,11,r,ETOT,{fill:XP(XL.INPUT),border:BOX,font:XF(9,false,XL.BLUE_IN),align:XLEFTW});
+        xset(ws,r,11,txt); ws.mergeCells(r,11,r,ETOT);
+        // ความสูงแถวขยายตามความยาวข้อความ (ตัดบรรทัดอัตโนมัติ)
+        ws.getRow(r).height = Math.max(16, Math.ceil((String(txt||'').length||1)/110)*14);
+        r+=1;
       }
       const last_log=r-1;
-      ws.addConditionalFormatting({ref:`K${first_log}:AA${last_log}`, rules:[
+      ws.addConditionalFormatting({ref:`K${first_log}:${TOTL}${last_log}`, rules:[
         {type:'expression', formulae:[`AND($F${first_log}<0,$K${first_log}="")`], style:{fill:{type:'pattern',pattern:'solid',bgColor:{argb:XL.PINK}}}}]});
       ws.addConditionalFormatting({ref:`H${first_log}:J${last_log}`, rules:[
         {type:'expression', formulae:[`$F${first_log}<0`], style:{fill:{type:'pattern',pattern:'solid',bgColor:{argb:XL.PINK}}, font:{name:'Arial',size:9,bold:true,color:{argb:XL.DKRED}}}},
@@ -1532,7 +1659,7 @@ async function exportExcel(){
       });
       ws.getCell(r,8).numFmt='General';
       xpaint(ws,r,11,r,ETOT,{fill:XP(XL.NAVY),border:BOXT});
-      GT[`${yard}|${mnum}`]=[gp,ga,gd];
+      GT[`${yard}|${mnum}`]={plan:gp, act:ga, skip:gs, diff:gd};
       r+=3;
     }
   }
@@ -1541,8 +1668,8 @@ async function exportExcel(){
   {
     const ws=wb.getWorksheet('สรุปรายเดือน-แยก Yard'); ws.views=[{state:'frozen',xSplit:1,ySplit:5,showGridLines:false}];
     ws.getColumn(1).width=20;
-    const ncol=1+(YARDS.length+1)*3+1;
-    for(let i=2;i<=ncol;i++) ws.getColumn(i).width=10;
+    const ncol=1+(YARDS.length+1)*4+1;
+    for(let i=2;i<=ncol;i++) ws.getColumn(i).width=9;
     xbanner(ws,1,ncol,'สรุป PDI รายเดือน แยก Yard  |  PDI Monthly Summary by Yard');
     xbanner(ws,2,ncol,RANGE_TH,12,XL.BAND,20);
     xpaint(ws,4,1,5,1,{fill:XP(XL.HDR),border:BOXK,font:XF(10,true,XL.NAVY),align:XCENW});
@@ -1550,11 +1677,11 @@ async function exportExcel(){
     const groups=YARDS.map(y=>[y,y]).concat([['รวมทุก Yard',null]]);
     let cc=2; const gcol={};
     groups.forEach(([label,yard])=>{
-      xpaint(ws,4,cc,4,cc+2,{fill:XP(yard?XL.LAV:XL.PEACH),border:BOXK,font:XF(10,true,XL.BLACK),align:XCEN});
-      xset(ws,4,cc,label); ws.mergeCells(4,cc,4,cc+2);
-      [['Plan',XL.T_BLUE,XL.NAVY],['Actual',XL.T_GREEN,XL.NAVY],['Diff.',XL.T_YELL,XL.RED]].forEach(([t,bg,fg],k)=>
+      xpaint(ws,4,cc,4,cc+3,{fill:XP(yard?XL.LAV:XL.PEACH),border:BOXK,font:XF(10,true,XL.BLACK),align:XCEN});
+      xset(ws,4,cc,label); ws.mergeCells(4,cc,4,cc+3);
+      [['Plan',XL.T_BLUE,XL.NAVY],['Skip',XL.SKIP_C,XL.SKIP_T],['Actual',XL.T_GREEN,XL.NAVY],['Diff.',XL.T_YELL,XL.RED]].forEach(([t,bg,fg],k)=>
         xset(ws,5,cc+k,t,{font:XF(9,true,fg),fill:XP(bg),align:XCEN,border:BOXK}));
-      gcol[label]=cc; cc+=3;
+      gcol[label]=cc; cc+=4;
     });
     const PCT_COL=cc;
     xpaint(ws,4,PCT_COL,5,PCT_COL,{fill:XP(XL.HDR),border:BOXK,font:XF(9,true,XL.NAVY),align:XCENW});
@@ -1565,16 +1692,19 @@ async function exportExcel(){
       xset(ws,r,1,`${TH_MONTH[mnum-1]} / ${EN_MONTH[mnum-1]}`,{font:XF(10,true,XL.NAVY),fill:XP(XL.WHITE),align:XLEFT,border:BOXK});
       groups.forEach(([label,yard])=>{
         const c0=gcol[label];
-        const vals = yard ? [0,1,2].map(k=>`=${SHX(yard)}!$${TOTL}$${GT[`${yard}|${mnum}`][k]}`)
-                          : [0,1,2].map(k=>'='+YARDS.map(y=>`${colL(gcol[y]+k)}${r}`).join('+'));
-        vals.forEach((v,k)=>xset(ws,r,c0+k,v,{font:XF(9,true,[XL.BLACK,XL.NAVY,XL.RED][k]),fill:XP([XL.T_BLUE,XL.T_GREEN,XL.T_YELL][k]),align:XCEN,fmt:XL.FMT,border:BOXK}));
+        const G = GT[`${yard}|${mnum}`];
+        const S = TOTL, sh = yard?SHX(yard):'';
+        const vals = yard ? [`=${sh}!$${S}$${G.plan}`, `=${sh}!$${S}$${G.skip}`,
+                             `=${sh}!$${S}$${G.act}+${sh}!$${S}$${G.skip}`, `=${sh}!$${S}$${G.diff}`]
+                          : [0,1,2,3].map(k=>'='+YARDS.map(y=>`${colL(gcol[y]+k)}${r}`).join('+'));
+        vals.forEach((v,k)=>xset(ws,r,c0+k,v,{font:XF(9,true,[XL.BLACK,XL.SKIP_T,XL.NAVY,XL.RED][k]),fill:XP([XL.T_BLUE,XL.SKIP_C,XL.T_GREEN,XL.T_YELL][k]),align:XCEN,fmt:XL.FMT,border:BOXK}));
       });
-      xset(ws,r,PCT_COL,`=IF(${colL(tot)}${r}=0,"",${colL(tot+1)}${r}/${colL(tot)}${r})`,{font:XF(9,true,XL.GREY),fill:XP(XL.WHITE),align:XCEN,fmt:XL.PCT,border:BOXK});
+      xset(ws,r,PCT_COL,`=IF(${colL(tot)}${r}=0,"",${colL(tot+2)}${r}/${colL(tot)}${r})`,{font:XF(9,true,XL.GREY),fill:XP(XL.WHITE),align:XCEN,fmt:XL.PCT,border:BOXK});
     });
     const tr=6+MONTHS.length;
     xset(ws,tr,1,`รวม ${RANGE_EN} / Total`,{font:XF(10,true,XL.WHITE),fill:XP(XL.NAVY),align:XLEFT,border:BOXT});
     for(let c0=2;c0<PCT_COL;c0++) xset(ws,tr,c0,`=SUM(${colL(c0)}6:${colL(c0)}${tr-1})`,{font:XF(9,true,XL.WHITE),fill:XP(XL.NAVY),align:XCEN,fmt:XL.FMT,border:BOXT});
-    xset(ws,tr,PCT_COL,`=IF(${colL(tot)}${tr}=0,"",${colL(tot+1)}${tr}/${colL(tot)}${tr})`,{font:XF(9,true,XL.WHITE),fill:XP(XL.NAVY),align:XCEN,fmt:XL.PCT,border:BOXT});
+    xset(ws,tr,PCT_COL,`=IF(${colL(tot)}${tr}=0,"",${colL(tot+2)}${tr}/${colL(tot)}${tr})`,{font:XF(9,true,XL.WHITE),fill:XP(XL.NAVY),align:XCEN,fmt:XL.PCT,border:BOXT});
     xset(ws,tr+2,1,'ดึงจากแถว Grand total ของชีต กรอก- ทุกใบอัตโนมัติ — ไม่ต้องกรอกในหน้านี้',{font:XF(8,false,XL.GREY,true)});
   }
 
@@ -1593,20 +1723,21 @@ async function exportExcel(){
       for(let day=1;day<=31;day++) xset(ws,hr,1+day, day<=ndays?day:null,{font:XF(9,true,XL.NAVY),fill:XP(day<=ndays?XL.HDR:XL.NA),align:XCEN,border:BOXK});
       xset(ws,hr,33,'รวมทั้งเดือน',{font:XF(9,true,XL.WHITE),fill:XP(XL.NAVY),align:XCENW,border:BOXK});
       ws.getRow(hr).height=22;
-      [['Plan PDI',0,XL.BLACK,XL.T_BLUE],['Actual PDI',1,XL.NAVY,XL.T_GREEN],['Diff.',2,XL.RED,XL.T_YELL]].forEach(([label,idx,fg,bg],k)=>{
+      const ref=(y,col,key)=>{ const g=GT[`${y}|${mnum}`]; return key==='done'?`${SHX(y)}!${col}${g.act}+${SHX(y)}!${col}${g.skip}`:`${SHX(y)}!${col}${g[key]}`; };
+      [['Plan PDI','plan',XL.BLACK,XL.T_BLUE],['Skip PDI','skip',XL.SKIP_T,XL.SKIP_C],['Actual PDI','done',XL.NAVY,XL.T_GREEN],['Diff.','diff',XL.RED,XL.T_YELL]].forEach(([label,key,fg,bg],k)=>{
         const rr=hr+1+k;
         xset(ws,rr,1,label,{font:XF(10,true,fg),fill:XP(bg),align:XLEFT,border:BOXK});
         for(let day=1;day<=31;day++){
-          const v = day<=ndays ? '='+YARDS.map(y=>`${SHX(y)}!${colL(ECOL0+day-1)}${GT[`${y}|${mnum}`][idx]}`).join('+') : null;
+          const v = day<=ndays ? '='+YARDS.map(y=>ref(y,colL(ECOL0+day-1),key)).join('+') : null;
           xset(ws,rr,1+day,v,{fill:XP(day<=ndays?bg:XL.NA),font:XF(9,true,fg),align:XCEN,fmt:XL.FMT,border:BOXK});
         }
-        xset(ws,rr,33,'='+YARDS.map(y=>`${SHX(y)}!$${TOTL}$${GT[`${y}|${mnum}`][idx]}`).join('+'),{font:XF(10,true,XL.WHITE),fill:XP(XL.NAVY),align:XCEN,fmt:XL.FMT,border:BOXK});
+        xset(ws,rr,33,'='+YARDS.map(y=>ref(y,`$${TOTL}$`,key)).join('+'),{font:XF(10,true,XL.WHITE),fill:XP(XL.NAVY),align:XCEN,fmt:XL.FMT,border:BOXK});
       });
-      const pr=hr+4;
+      const pr=hr+5;
       xset(ws,pr,1,'% ความสำเร็จ',{font:XF(10,true,XL.NAVY),fill:XP(XL.HDR),align:XLEFT,border:BOXK});
       for(let day=1;day<=32;day++){
         const colx = day===32?33:1+day, live = day===32||day<=ndays, L=colL(colx);
-        xset(ws,pr,colx, live?`=IF(N(${L}${hr+1})=0,"",${L}${hr+2}/${L}${hr+1})`:null,
+        xset(ws,pr,colx, live?`=IF(N(${L}${hr+1})=0,"",${L}${hr+3}/${L}${hr+1})`:null,
           {fill:XP(day===32?XL.NAVY:(live?XL.WHITE:XL.NA)), font:XF(day===32?10:9,true,day===32?XL.WHITE:XL.GREY), align:XCEN, fmt:XL.PCT, border:BOXK});
       }
       r=pr+2;
@@ -1643,8 +1774,8 @@ async function exportExcel(){
     };
     header(6,'เดือน / Month');
     MONTHS.forEach((mnum,pos)=>rowf(7+pos,EN_MONTH[mnum-1],
-      '='+YARDS.map(y=>`${SHX(y)}!$${TOTL}$${GT[`${y}|${mnum}`][0]}`).join('+'),
-      '='+YARDS.map(y=>`${SHX(y)}!$${TOTL}$${GT[`${y}|${mnum}`][1]}`).join('+')));
+      '='+YARDS.map(y=>`${SHX(y)}!$${TOTL}$${GT[`${y}|${mnum}`].plan}`).join('+'),
+      '='+YARDS.map(y=>{const g=GT[`${y}|${mnum}`]; return `${SHX(y)}!$${TOTL}$${g.act}+${SHX(y)}!$${TOTL}$${g.skip}`;}).join('+')));
     const cutM = (()=>{ const p=cutoff.split('/'); return p.length===3 ? Number(p[1]) : null; })();
     if(cutM && MONTHS.includes(cutM)) xset(ws,7+MONTHS.indexOf(cutM),6,`Cut off ${cutoff}`);
     const TOTR=7+MONTHS.length;
@@ -1653,8 +1784,8 @@ async function exportExcel(){
     xbanner(ws,YHDR,6,`แยกราย Yard (${RANGE_EN} ${YEAR})  /  By Yard`,12,XL.BAND,20);
     header(YHDR+1,'Yard');
     YARDS.forEach((y,yi)=>rowf(YHDR+2+yi,y,
-      '='+MONTHS.map(m=>`${SHX(y)}!$${TOTL}$${GT[`${y}|${m}`][0]}`).join('+'),
-      '='+MONTHS.map(m=>`${SHX(y)}!$${TOTL}$${GT[`${y}|${m}`][1]}`).join('+')));
+      '='+MONTHS.map(m=>`${SHX(y)}!$${TOTL}$${GT[`${y}|${m}`].plan}`).join('+'),
+      '='+MONTHS.map(m=>{const g=GT[`${y}|${m}`]; return `${SHX(y)}!$${TOTL}$${g.act}+${SHX(y)}!$${TOTL}$${g.skip}`;}).join('+')));
     const YTOT=YHDR+2+YARDS.length;
     totf(YTOT,'รวมทุก Yard / Total',YHDR+2,YTOT-1);
     xset(ws,YTOT+2,1,'สายข้อมูล:  กรอก-<Yard>  →  หน้านี้ + สรุปรายเดือน-แยก Yard + สรุปรายวัน   ·   กรอกที่ชีต กรอก- ที่เดียว',{font:XF(8,false,XL.GREY,true)});
